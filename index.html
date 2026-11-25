@@ -435,7 +435,7 @@ async function importICU(manual){
   msg.textContent='Synchronisation…';
   const t=iso(new Date()),from=addDays(t,-3),to=addDays(t,7);
   try{
-    const [acts,evs]=await Promise.all([icuGet('activities',from,t),icuGet('events',t,to)]);
+    const [acts,evs]=await Promise.all([icuGet('activities',from,addDays(t,1)),icuGet('events',t,to)]);
     // on remplace tout ce qui venait d'Intervals.icu sur la période
     S.sessions=S.sessions.filter(s=>s.src!=='Intervals.icu'||s.date<from);
     let nA=0,nE=0;
