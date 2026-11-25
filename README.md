@@ -8,7 +8,7 @@ Nutrition calée sur l'entraînement : glucides du jour et code couleur de chaqu
 - Hébergement gratuit sur Vercel (offre Hobby). Aucune variable d'environnement n'est nécessaire.
 
 ## Objectifs imposés (diététicien·ne, coach)
-Dans **Profil**, trois champs facultatifs : **calories de référence** (kcal/jour), **protéines** et **lipides** (g/jour). La référence s'applique chaque jour, repos compris, et convient à un objectif de perte de poids : les calories dépensées ne sont **pas** rajoutées. Seuls s'ajoutent les glucides pris pendant les séances de plus de 75 min et une petite récupération (0,4 g/kg) après les séances de 90 min et plus. Pour le reste, les glucides du jour sont déplacés vers les repas autour des séances (code couleur).
+Dans **Profil**, trois champs facultatifs : **calories** (kcal/jour), **protéines** et **lipides** (g/jour). Les calories sont un **total strict** chaque jour, entraînement compris : rien n'est ajouté. Les glucides pris pendant l'effort (boisson, gels) sont comptés dedans et retirés des repas ; le reste est réparti entre les repas selon le code couleur (plus autour des séances).
 
 ## Menus concrets
 Pour chaque repas, Ravito propose un menu avec des quantités (poids cuits) calculées pour atteindre les glucides et protéines visés, à partir d'une table d'aliments courants. Bouton « Autre idée » pour une variante. Les glucides pris pendant les séances (boisson, gels) sont déduits des repas. Avant une séance proche, la collation est digeste (peu de gras et de fibres). Valeurs nutritionnelles indicatives.

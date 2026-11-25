@@ -238,7 +238,7 @@ footer{max-width:980px;margin:auto;padding:10px 16px 40px;color:var(--mut);font-
       <div><label>FTP vélo en watts (facultatif)</label><input type="number" id="pFTP" placeholder="ex. 250"></div>
     </div>
     <h3 style="margin-top:16px">Objectifs fixés par ton diététicien·ne ou coach (facultatif)</h3>
-    <p class="sm mut" style="margin:0 0 8px">Laisse vide pour que Ravito calcule. Les calories sont ta <b>base de chaque jour</b>, repos compris, pensée pour la perte de poids : les calories dépensées ne sont <b>pas</b> rajoutées. Seuls les glucides pris pendant les séances de plus de 75 min et une petite récupération après les séances de 90 min et plus s'ajoutent ; sinon les glucides sont déplacés vers les repas autour des séances.</p>
+    <p class="sm mut" style="margin:0 0 8px">Laisse vide pour que Ravito calcule. Les calories sont ton <b>total de chaque jour</b>, entraînement compris : rien n'est ajouté, même les jours de grosse séance. Ravito <b>déplace</b> les glucides vers les repas autour des séances et compte la boisson et les gels pris pendant l'effort dans ce total.</p>
     <div class="grid g4">
       <div><label>Calories de référence (kcal/jour)</label><input type="number" id="pKcal" placeholder="ex. 2700"></div>
       <div><label>Protéines (g/jour)</label><input type="number" id="pProt" placeholder="ex. 180"></div>
@@ -340,12 +340,7 @@ function dayPlan(d){
     // + glucides ajoutés autour des séances longues ou intenses
     fat=p.fat||Math.max(0.8*p.w,p.kcal*0.26/9);
     carbs=Math.max(2*p.w,(p.kcal-prot*4-fat*9)/4);
-    // objectif de perte de poids : on n'ajoute pas les calories dépensées.
-    // Seule une petite récupération après les séances ≥ 90 min est ajoutée ;
-    // le reste est réparti autrement entre les repas (code couleur).
-    ss.forEach(s=>{
-      if(s.dur>=90){const g=0.4*p.w;extra+=g;extraWhy.push('récupération '+(s.name||'séance longue'))}
-    });
+    // objectif strict : la référence est le total du jour, rien n'est ajouté.
     carbs+=extra;
     cpk=carbs/p.w;
   }else{
@@ -355,10 +350,8 @@ function dayPlan(d){
   energy=carbs*4+prot*4+fat*9;
   const intra=ss.reduce((a,s)=>a+during(s).total,0);
   let mealCarbs=Math.max(carbs*0.6,carbs-intra);
-  if(p.kcal){
-    const intraRef=ss.filter(s=>s.dur>75).reduce((a,s)=>a+during(s).total,0);
-    mealCarbs=carbs;carbs+=intraRef;energy=carbs*4+prot*4+fat*9;
-  }
+  // objectif strict : les glucides pris pendant l'effort sont pris DANS le total du jour
+  if(p.kcal)mealCarbs=Math.max(carbs*0.4,carbs-intra);
   // repas
   const mt=(p.meals||['07:30','12:30','16:30','19:45']).map(mins);
   const tomorrow=daySess(addDays(d,1));
