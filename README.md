@@ -7,6 +7,9 @@ Nutrition calée sur l'entraînement : glucides du jour et code couleur de chaqu
 - Pas de base de données. Le profil, les séances et la clé Intervals.icu restent dans le navigateur de chaque utilisateur.
 - Hébergement gratuit sur Vercel (offre Hobby). Aucune variable d'environnement n'est nécessaire.
 
+## Menus concrets
+Pour chaque repas, Ravito propose un menu avec des quantités (poids cuits) calculées pour atteindre les glucides et protéines visés, à partir d'une table d'aliments courants. Bouton « Autre idée » pour une variante. Les glucides pris pendant les séances (boisson, gels) sont déduits des repas. Avant une séance proche, la collation est digeste (peu de gras et de fibres). Valeurs nutritionnelles indicatives.
+
 ## Mise en ligne
 1. Sur https://vercel.com : **Add New → Project**, choisis ce dépôt, puis **Deploy**.
 2. Chaque push sur `main` redéploie automatiquement.

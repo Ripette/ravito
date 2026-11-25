@@ -323,7 +323,7 @@ function dayPlan(d){
   const exK=ss.reduce((a,s)=>a+kcal(s),0);
   let energy=bmr(p)*p.act+exK;
   if(p.goal==='loss')energy*=L<1.5?0.85:0.95;
-  const carbs=cpk*p.w, prot=(p.goal==='loss'?2.0:1.8)*p.w;
+  const carbs=cpk*p.w, intra=ss.reduce((a,s)=>a+during(s).total,0), mealCarbs=Math.max(carbs*0.6,carbs-intra), prot=(p.goal==='loss'?2.0:1.8)*p.w;
   let fat=(energy-carbs*4-prot*4)/9; fat=Math.max(fat,0.8*p.w);
   energy=carbs*4+prot*4+fat*9;
   // repas
@@ -340,13 +340,137 @@ function dayPlan(d){
     });
     if(i===mt.length-1){tomorrow.forEach(s=>{const l=load_(s);sc+=mins(s.time)<720?l*0.7:l*0.3;if(l>=1)why.push('séance demain '+(mins(s.time)<720?'matin':'')+' ('+INAME[s.int].toLowerCase()+', '+hm(s.dur)+')')})}
     const code=sc>=1.1?'hi':sc>=0.4?'mid':'lo';
-    return{name:MEALS[i],time:p.meals?p.meals[i]:'',code,why};
+    const near=ss.some(s=>{const st=mins(s.time);return st>t&&st-t<=150&&s.dur>=45});
+    return{name:MEALS[i],time:p.meals?p.meals[i]:'',code,why,near,slot:i};
   });
   const wt={hi:3,mid:2,lo:1};
   let tot=meals.reduce((a,m)=>a+wt[m.code]*(m.name==='Collation'?0.5:1),0);
-  meals.forEach(m=>{const f=(m.name==='Collation'?0.5:1);m.c=carbs*wt[m.code]*f/tot;m.p=prot*f/3.5;m.f=fat*f/3.5*(m.code==='hi'?0.8:1.1)});
-  return{L,cpk,carbs,prot,fat,energy,exK,meals,ss,level:dayLevel(L)};
+  const fw=m=>(m.name==='Collation'?0.5:1)*(m.code==='hi'?0.8:1.1),ftot=meals.reduce((a,m)=>a+fw(m),0);
+  meals.forEach(m=>{const f=(m.name==='Collation'?0.5:1);m.c=mealCarbs*wt[m.code]*f/tot;m.p=prot*f/3.5;m.f=fat*fw(m)/ftot});
+  return{L,cpk,carbs,intra:carbs-mealCarbs,prot,fat,energy,exK,meals,ss,level:dayLevel(L)};
 }
+
+/* ---------- menus concrets ----------
+   Valeurs pour 100 g (poids cuit pour féculents et viandes), table indicative.
+   u = poids d'une unité (pièce, tranche), n = nom affiché. */
+const FOOD={
+  pates:{n:'pâtes (cuites)',c:30,p:5.5,f:1,min:100,max:400},
+  riz:{n:'riz (cuit)',c:28,p:2.7,f:0.3,min:100,max:400},
+  pdt:{n:'pommes de terre (cuites)',c:17,p:2,f:0.1,min:150,max:500},
+  pdouce:{n:'patate douce (cuite)',c:20,p:1.6,f:0.1,min:150,max:450},
+  semoule:{n:'semoule (cuite)',c:23,p:4,f:0.5,min:100,max:350},
+  quinoa:{n:'quinoa (cuit)',c:21,p:4.4,f:1.9,min:100,max:300},
+  gnocchi:{n:'gnocchis',c:33,p:4,f:0.5,min:150,max:400},
+  pain:{n:'pain blanc',c:52,p:9,f:1.5,min:30,max:200,u:40,un:'tranche'},
+  painc:{n:'pain complet',c:42,p:9,f:2.5,min:30,max:160,u:40,un:'tranche'},
+  avoine:{n:'flocons d\'avoine',c:60,p:13,f:7,min:30,max:130},
+  lentilles:{n:'lentilles (cuites)',c:17,p:9,f:0.5,min:100,max:300},
+  poischiches:{n:'pois chiches (cuits)',c:20,p:8,f:2.6,min:80,max:250},
+  wrap:{n:'galette de blé',c:50,p:8,f:7,min:60,max:180,u:60,un:'galette',self:1},
+  banane:{n:'banane',c:20,p:1.1,f:0.3,u:120,un:'banane',min:120,max:360},
+  pomme:{n:'pomme',c:12,p:0.3,f:0.2,u:150,un:'pomme',min:150,max:300},
+  fruitsr:{n:'fruits rouges',c:9,p:1,f:0.3,min:80,max:200},
+  jus:{n:'jus d\'orange',c:9,p:0.7,f:0,min:150,max:500,ml:1},
+  miel:{n:'miel',c:80,p:0.3,f:0,min:10,max:40},
+  confiture:{n:'confiture',c:60,p:0.4,f:0,min:15,max:50},
+  compote:{n:'compote sans sucre ajouté',c:14,p:0.3,f:0.1,u:100,un:'gourde',min:100,max:300},
+  dattes:{n:'dattes',c:65,p:2,f:0.4,u:8,un:'datte',min:16,max:80},
+  rizlait:{n:'riz au lait',c:20,p:3.3,f:3,u:125,un:'pot',min:125,max:250},
+  granola:{n:'granola',c:62,p:9,f:15,min:20,max:60},
+  poulet:{n:'blanc de poulet (cuit)',p:31,f:3.6,c:0,min:100,max:220},
+  dinde:{n:'escalope de dinde (cuite)',p:29,f:2,c:0,min:100,max:220},
+  boeuf:{n:'steak haché 5 % (cuit)',p:27,f:6,c:0,min:100,max:200},
+  saumon:{n:'saumon (cuit)',p:25,f:12,c:0,min:100,max:180},
+  thon:{n:'thon au naturel',p:26,f:1,c:0,min:80,max:160},
+  cabillaud:{n:'cabillaud (cuit)',p:23,f:1,c:0,min:120,max:250},
+  oeuf:{n:'œuf',p:12.5,f:10,c:0.7,u:55,un:'œuf',min:110,max:220},
+  tofu:{n:'tofu ferme',p:15,f:8,c:2,min:120,max:250},
+  jambon:{n:'jambon blanc',p:21,f:3,c:1,u:40,un:'tranche',min:80,max:160},
+  skyr:{n:'skyr',p:11,f:0.2,c:4,min:100,max:300},
+  fblanc:{n:'fromage blanc 0 %',p:8,f:0.2,c:4,min:100,max:300},
+  lait:{n:'lait demi-écrémé',p:3.3,f:1.6,c:4.8,min:150,max:300,ml:1},
+  legumes:{n:'légumes (haricots verts, brocoli, courgettes…)',c:4,p:2,f:0.3,min:100,max:400},
+  crudites:{n:'crudités (tomate, carotte, salade…)',c:4,p:1,f:0.2,min:100,max:300},
+  huile:{n:'huile d\'olive',f:100,c:0,p:0,min:0,max:20},
+  beurre:{n:'beurre',f:82,c:0.6,p:0.6,min:0,max:15},
+  cacahuete:{n:'beurre de cacahuète',c:14,p:25,f:50,min:0,max:30},
+  amandes:{n:'amandes',c:7,p:21,f:53,min:0,max:35},
+  avocat:{n:'avocat',c:2,p:2,f:15,min:0,max:120},
+  parmesan:{n:'parmesan',c:0,p:33,f:28,min:0,max:25},
+};
+/* gabarits : base (glucides), prot (protéines), fixe (quantités fixes), plus (glucides d'appoint), gras */
+const TPL={
+  bf:[
+    {t:'Porridge',base:['avoine'],prot:['skyr','fblanc'],fixe:{lait:250},fruit:['banane','fruitsr'],plus:['miel','dattes'],gras:['cacahuete','amandes']},
+    {t:'Tartines',base:['pain','painc'],prot:['oeuf','skyr','jambon'],fruit:['banane','pomme','jus'],plus:['confiture','miel'],gras:['beurre']},
+    {t:'Bol skyr-granola',base:['granola','avoine'],prot:['skyr'],fruit:['fruitsr','banane'],plus:['miel','jus'],gras:['amandes']},
+  ],
+  main:[
+    {t:'Assiette',base:['pates','riz','semoule','gnocchi'],prot:['poulet','dinde','thon','boeuf','cabillaud'],veg:'legumes',plus:['pain','compote','banane'],gras:['huile','parmesan']},
+    {t:'Assiette',base:['pdt','pdouce','riz','quinoa'],prot:['saumon','poulet','oeuf','cabillaud','boeuf'],veg:'legumes',plus:['pain','compote','rizlait'],gras:['huile']},
+    {t:'Bol',base:['quinoa','riz','lentilles','poischiches'],prot:['tofu','oeuf','thon','poulet'],veg:'crudites',plus:['pain','pomme'],gras:['huile','avocat']},
+    {t:'Wrap',base:['wrap'],prot:['poulet','thon','oeuf','jambon'],veg:'crudites',plus:['pomme','compote','banane'],gras:['avocat','huile']},
+  ],
+  pre:[
+    {t:'Avant séance',base:['pain','rizlait'],prot:['jambon','skyr'],fruit:['banane','compote'],plus:['miel','confiture','dattes'],gras:[]},
+    {t:'Avant séance',base:['rizlait','pain'],prot:['skyr','fblanc'],fruit:['banane','compote'],plus:['dattes','jus','miel'],gras:[]},
+  ],
+  snack:[
+    {t:'Collation',base:['pain','rizlait','dattes'],prot:['skyr','fblanc','jambon'],fruit:['banane','compote'],plus:['miel','jus'],gras:['cacahuete','amandes']},
+    {t:'Collation',base:['avoine','granola'],prot:['skyr','fblanc'],fruit:['fruitsr','pomme'],plus:['miel'],gras:['amandes']},
+  ],
+};
+// généré déterministe : même jour + même variante = même menu
+function rng(seed){let a=2166136261;for(const ch of seed)a=Math.imul(a^ch.charCodeAt(0),16777619);
+  const r=()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+  for(let i=0;i<4;i++)r();return r}
+const pick=(arr,r)=>arr[Math.floor(r()*arr.length)];
+function roundQ(k,g){const F=FOOD[k];if(F.u&&g>0){const n=Math.max(1,Math.round(g/F.u));return n*F.u}return g<=0?0:g<40?Math.round(g/5)*5:Math.round(g/10)*10}
+function buildMenu(m,day,variant){
+  const r=rng(day+'|'+m.slot+'|'+variant);
+  const kind=m.slot===0?'bf':m.name==='Collation'?(m.near?'pre':'snack'):'main';
+  let list=TPL[kind];
+  if(m.near&&kind==='main')list=list.filter(t=>t.t!=='Bol'&&t.t!=='Wrap'); // séance proche : digeste
+  const T=list[Math.floor(r()*list.length)],q={};
+  const add=(k,g)=>{if(k&&g>0)q[k]=(q[k]||0)+g};
+  const tot=()=>Object.entries(q).reduce((a,[k,g])=>{const F=FOOD[k];a.c+=F.c*g/100;a.p+=F.p*g/100;a.f+=F.f*g/100;return a},{c:0,p:0,f:0});
+  const clamp=(k,g)=>Math.min(FOOD[k].max,Math.max(FOOD[k].min,g));
+  // éléments fixes : lait, légumes, fruit
+  Object.entries(T.fixe||{}).forEach(([k,g])=>add(k,g));
+  if(T.veg)add(T.veg,m.code==='lo'?300:m.near?120:200);
+  if(T.fruit){const k=pick(T.fruit,r);add(k,FOOD[k].u||(k==='jus'?200:100))}
+  // base glucidique (b) et source de protéines (k) résolues ensemble :
+  //   b·cb + k·ck = C restant  et  b·pb + k·pk = P restant
+  const bk=pick(T.base,r),pk=pick(T.prot,r),B=FOOD[bk],K=FOOD[pk],t0=tot();
+  const C=Math.max(0,m.c-t0.c),Pn=Math.max(0,m.p-t0.p),det=B.c*K.p-K.c*B.p;
+  let gb=det?(C*K.p-K.c*Pn)/det*100:C/B.c*100, gk=det?(B.c*Pn-C*B.p)/det*100:Pn/K.p*100;
+  gk=roundQ(pk,clamp(pk,gk));add(pk,gk);
+  gb=(m.c-tot().c)/B.c*100;if(gb>5)add(bk,roundQ(bk,clamp(bk,gb)));
+  // appoint glucidique si la base plafonne
+  let left=m.c-tot().c;
+  if(left>12&&T.plus){const k=pick(T.plus,r);add(k,roundQ(k,clamp(k,left/FOOD[k].c*100)))}
+  left=m.c-tot().c;
+  if(left>20&&kind==='main')add('pain',roundQ('pain',Math.min(120,left/FOOD.pain.c*100)));
+  // lipides (pas d'ajout si séance proche)
+  const fneed=m.f-tot().f;
+  if(fneed>3&&T.gras.length&&!m.near){const fk=pick(T.gras,r);add(fk,roundQ(fk,Math.min(FOOD[fk].max,fneed/FOOD[fk].f*100)))}
+  const items=Object.entries(q).filter(([,g])=>g>0).map(([k,g])=>label(k,g));
+  return{t:T.t,items,tot:tot()};
+}
+function label(k,g){
+  const F=FOOD[k];
+  if(k==='huile')return g>=10?`${Math.round(g/10)} c. à soupe d'huile d'olive`:`${Math.max(1,Math.round(g/5))} c. à café d'huile d'olive`;
+  if(F.u){
+    const n=Math.max(1,Math.round(g/F.u)),pl=n>1?'s':'';
+    if(['banane','pomme','datte'].includes(F.un))return `${n} ${F.un}${pl}`;
+    if(F.un==='œuf')return `${n} œuf${pl}`;
+    if(F.self)return `${n} ${F.n.replace(F.un,F.un+pl)}`;
+    const de=/^[aeiouéèhœ]/i.test(F.n)?"d'":'de ';
+    return `${n} ${F.un}${pl} ${de}${F.n}${F.un==='tranche'?` (${g} g)`:''}`;
+  }
+  return `${g} ${F.ml?'ml':'g'} ${/^[aeiouéèhœ]/i.test(F.n)?"d'":'de '}${F.n}`;
+}
+function fmtItem(t){return t}
 
 const MEALTIPS={
   hi:['Base généreuse de féculents : pâtes, riz, pommes de terre, pain, flocons d\'avoine','Fruits, jus ou miel en plus si besoin','Peu de fibres et de gras si la séance est proche (moins de 2 h)'],
@@ -375,6 +499,17 @@ function renderStrip(){
       <small>${daySess(d).length?daySess(d).length+' séance'+(daySess(d).length>1?'s':''):'repos'}</small></div>`}
   document.getElementById('dayStrip').innerHTML=h;
 }
+function menuHTML(m){
+  S.var=S.var||{};const key=selDay+'|'+m.slot,v=S.var[key]||0,M=buildMenu(m,selDay,v);
+  return `<div style="margin-top:8px;padding:10px;border-radius:10px;background:rgba(255,255,255,.03)">
+    <div class="row" style="justify-content:space-between"><b class="sm">${M.t}${m.near?' · digeste, séance proche':''}</b>
+      <button class="g" style="padding:4px 10px;font-size:13px" onclick="nextMenu('${key}')">Autre idée ↻</button></div>
+    <ul class="sm" style="margin:6px 0 4px;padding-left:18px">${M.items.map(x=>`<li>${esc(fmtItem(x))}</li>`).join('')}</ul>
+    <div class="note" style="margin:0">Ce menu ≈ ${Math.round(M.tot.c)} g glucides · ${Math.round(M.tot.p)} g protéines · ${Math.round(M.tot.f)} g lipides · ${r5(M.tot.c*4+M.tot.p*4+M.tot.f*9)} kcal</div>
+  </div>`;
+}
+function nextMenu(key){S.var=S.var||{};S.var[key]=(S.var[key]||0)+1;const ks=Object.keys(S.var);if(ks.length>200)delete S.var[ks[0]];save();renderToday()}
+
 function renderToday(){
   document.getElementById('needProfile').classList.toggle('hidden',!!S.profile);
   renderStrip();
@@ -383,7 +518,7 @@ function renderToday(){
   document.getElementById('dayPill').innerHTML=`<span class="pill ${CODE[D.level].c}">Journée ${CODE[D.level].t.toLowerCase().replace('charge ','')}</span>`;
   document.getElementById('dayStats').innerHTML=
     `<div class="stat"><b>${r5(D.energy)}</b><span>kcal estimées</span></div>
-     <div class="stat"><b>${r5(D.carbs)} g</b><span>glucides (${D.cpk.toFixed(1)} g/kg)</span></div>
+     <div class="stat"><b>${r5(D.carbs)} g</b><span>glucides (${D.cpk.toFixed(1)} g/kg)${D.intra>0?` dont ${r5(D.intra)} g pendant l'effort`:''}</span></div>
      <div class="stat"><b>${r5(D.prot)} g</b><span>protéines</span></div>
      <div class="stat"><b>${r5(D.fat)} g</b><span>lipides</span></div>`;
   document.getElementById('dayWhy').textContent=D.ss.length?`${D.ss.length} séance(s), ${hm(D.ss.reduce((a,s)=>a+s.dur,0))} au total, ~${r5(D.exK)} kcal dépensées à l'entraînement.`:'Jour sans séance : on mange moins de glucides, mais on garde les protéines.';
@@ -392,8 +527,7 @@ function renderToday(){
       <div class="row" style="justify-content:space-between"><b>${m.name} <span class="mut sm">${esc(m.time)}</span></b><span class="pill ${CODE[m.code].c}">${CODE[m.code].t}</span></div>
       <div class="sm" style="margin:4px 0">≈ <b>${r5(m.c)} g</b> glucides · ${r5(m.p)} g protéines · ${r5(m.f)} g lipides</div>
       ${m.why.length?`<div class="sm mut">Pourquoi : ${esc(m.why.join(', '))}</div>`:''}
-      <ul class="sm" style="margin:6px 0 0;padding-left:18px">${MEALTIPS[m.code].map(x=>`<li>${x}</li>`).join('')}</ul>
-      <div class="note">Repères : ${EX[m.code].join(' · ')}</div>
+      ${menuHTML(m)}
     </div>`).join('');
   const dc=document.getElementById('during');
   dc.innerHTML=D.ss.length?D.ss.map(s=>{const x=during(s);return`<div class="sess" style="display:block">
