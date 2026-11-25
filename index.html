@@ -410,8 +410,13 @@ function importData(inp){const f=inp.files[0];if(!f)return;f.text().then(t=>{try
 
 /* ---------- Intervals.icu ---------- */
 const ICUMAP={Run:'run',VirtualRun:'run',TrailRun:'trail',Ride:'bike',VirtualRide:'bike',GravelRide:'bike',MountainBikeRide:'bike',EBikeRide:'bike',Swim:'swim',OpenWaterSwim:'swim',WeightTraining:'strength',Rowing:'row',NordicSki:'ski',Hike:'hike',Walk:'hike',Soccer:'team'};
-function icuInt(load,min,hr,watts,sport){
+function icuInt(load,min,hr,watts,sport,ifPct,name){
   const p=P();
+  // séance de fractionné repérée au nom (ex. « 6 x 5' », « 10x400 »)
+  const reps=/\d+\s*[x×]\s*\d/i.test(name||'');
+  // intensité calculée par Intervals.icu (en % du seuil)
+  if(ifPct){const f=ifPct/100;let i=f<0.65?1:f<0.78?2:f<0.88?3:4;return reps?Math.max(i,3):i}
+  if(reps)return 3;
   if(sport==='bike'&&watts&&p.ftp){const f=watts/p.ftp;return f<0.6?1:f<0.78?2:f<0.9?3:4}
   if(hr&&p.hrmax){const f=hr/p.hrmax;return f<0.68?1:f<0.79?2:f<0.87?3:4}
   if(load&&min){const lph=load/(min/60);return lph<40?1:lph<65?2:lph<85?3:4}
@@ -438,14 +443,14 @@ async function importICU(manual){
       const [date,tm]=(a.start_date_local||'').split('T');if(!date)return;
       const sport=ICUMAP[a.type]||'other',dur=Math.max(5,Math.round((a.moving_time||a.elapsed_time||0)/60));
       const i=S.sessions.findIndex(s=>s.date===date&&s.sport===sport&&!s.done);if(i>=0)S.sessions.splice(i,1);
-      S.sessions.push({id:'icuA'+a.id,date,time:(tm||'12:00').slice(0,5),sport,dur,int:icuInt(a.icu_training_load,dur,a.average_heartrate,a.icu_weighted_avg_watts,sport),name:a.name||'',src:'Intervals.icu',done:true});nA++;
+      S.sessions.push({id:'icuA'+a.id,date,time:(tm||'12:00').slice(0,5),sport,dur,int:icuInt(a.icu_training_load,dur,a.average_heartrate,a.icu_weighted_avg_watts,sport,a.icu_intensity,a.name),name:a.name||'',src:'Intervals.icu',done:true});nA++;
     });
     (evs||[]).filter(e=>e.category==='WORKOUT').forEach(e=>{
       const [date,tm]=(e.start_date_local||'').split('T');if(!date)return;
       const sport=ICUMAP[e.type]||'other';
       if(S.sessions.some(s=>s.done&&s.date===date&&s.sport===sport))return; // déjà réalisée
       const dur=Math.round((e.moving_time||e.time_target||3600)/60),time=(tm||'').slice(0,5);
-      S.sessions.push({id:'icuE'+e.id,date,time:!time||time==='00:00'?'18:00':time,sport,dur,int:icuInt(e.icu_training_load,dur,null,null,sport),name:e.name||'',src:'Intervals.icu'});nE++;
+      S.sessions.push({id:'icuE'+e.id,date,time:!time||time==='00:00'?'18:00':time,sport,dur,int:icuInt(e.icu_training_load,dur,null,null,sport,e.icu_intensity,e.name),name:e.name||'',src:'Intervals.icu'});nE++;
     });
     save();renderSessions();renderToday();
     document.getElementById('icuStatus').textContent='connecté ✓';
