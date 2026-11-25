@@ -19,6 +19,9 @@ Nutrition calée sur l'entraînement : glucides du jour et code couleur de chaqu
 
 Les activités arrivées dans Intervals.icu *via Strava* ne sont pas lisibles par API (restriction de Strava). Connecte la montre directement à Intervals.icu.
 
+## Séances prévues : agenda iCal (Garmin Connect, Nolio, Google Agenda…)
+Garmin ne transmet pas les séances planifiées à Intervals.icu. Pour les avoir, colle dans Ravito (onglet **Séances → Agenda d'entraînement**) le lien d'abonnement iCal de ton calendrier, par exemple celui de Garmin Connect où Nolio reporte tes séances. Ravito importe les 10 prochains jours et devine sport, durée et intensité d'après le nom (« HT Basse intensité » = vélo, « SV2 », « 6 x 5' » = intensité haute…). Tu peux corriger chaque séance dans la liste ; tes corrections sont gardées aux synchros suivantes.
+
 ## Strava (optionnel, payant)
 Strava réserve désormais son API aux abonnés. Si tu as un abonnement :
 1. Crée une app sur https://www.strava.com/settings/api (Authorization Callback Domain : ton domaine `xxx.vercel.app`, sans `https://`).
@@ -38,6 +41,7 @@ api/strava/callback.js retour de Strava, enregistre la connexion
 api/strava/activities.js activités des N derniers jours
 api/strava/logout.js  déconnexion et révocation
 api/icu.js            relais vers l'API Intervals.icu (activités et séances prévues)
+api/ics.js            relais pour lire un agenda iCal (refuse les adresses internes)
 api/strava/enabled.js indique si les clés Strava sont configurées
 ```
 

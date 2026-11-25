@@ -138,8 +138,17 @@ footer{max-width:980px;margin:auto;padding:10px 16px 40px;color:var(--mut);font-
       <p class="note" id="icuMsg"></p>
     </div>
     <div class="sess" style="display:block">
-      <b>Garmin · Nolio · Strava</b>
-      <p class="sm mut" style="margin:4px 0 0">Garmin : relie-le à Intervals.icu, tout arrive ici. Nolio : pas d'API publique, ajoute tes séances prévues à la main. Strava : son API demande désormais un abonnement payant ; le connecteur s'active si tu configures tes clés Strava.</p>
+      <b>Agenda d'entraînement (iCal)</b> <span class="sm mut" id="icsStatus">séances prévues · Garmin Connect, Nolio, Google Agenda…</span>
+      <p class="sm mut" style="margin:4px 0 8px">Colle le lien d'abonnement de ton calendrier (il commence par <code>https://</code> ou <code>webcal://</code>, souvent avec « ics » ou « ical »). Sur Garmin Connect (site web) : Calendrier → engrenage ou « Synchroniser / S'abonner ». Ravito importe les séances des 10 prochains jours, devine le sport et l'intensité d'après le nom (corrige-les si besoin), et ignore celles déjà réalisées.</p>
+      <div class="grid g3">
+        <div style="grid-column:span 2"><label>Lien de l'agenda</label><input id="icsUrl" placeholder="webcal://… ou https://….ics"></div>
+        <div style="align-self:end"><button class="b" onclick="importICS(true)">Importer l'agenda</button></div>
+      </div>
+      <p class="note" id="icsMsg"></p>
+    </div>
+    <div class="sess" style="display:block">
+      <b>Strava</b>
+      <p class="sm mut" style="margin:4px 0 0">Son API demande désormais un abonnement payant ; le connecteur s'active si tu configures tes clés Strava.</p>
     </div>
     <div class="sess hidden" id="stvCard" style="display:block">
       <div class="row" style="justify-content:space-between">
@@ -385,17 +394,32 @@ function renderToday(){
 }
 function renderSessions(){
   const t=iso(new Date()),list=S.sessions.filter(s=>s.date>=addDays(t,-2)).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
-  document.getElementById('sessList').innerHTML=list.length?list.map(s=>`<div class="sess">
-    <div><b>${new Date(s.date+'T12:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})} · ${esc(s.time)}</b> — ${esc(s.name||SPORTS[s.sport].n)}
-    <div class="sm mut">${SPORTS[s.sport].n} · ${hm(s.dur)} · ${INAME[s.int]}${s.done?' · ✓ réalisée':''}${s.src?' · '+esc(s.src):''}</div></div>
-    <button class="x" title="Supprimer" onclick="delSession('${s.id}')">✕</button></div>`).join(''):'<p class="mut sm">Aucune séance. Ajoute ta première ci-dessus.</p>';
+  const sOpt=cur=>Object.entries(SPORTS).map(([k,x])=>`<option value="${k}"${k===cur?' selected':''}>${x.n}</option>`).join('');
+  const iOpt=cur=>[1,2,3,4].map(i=>`<option value="${i}"${i===cur?' selected':''}>${INAME[i]}</option>`).join('');
+  document.getElementById('sessList').innerHTML=list.length?list.map(s=>`<div class="sess" style="flex-wrap:wrap">
+    <div style="flex:1 1 260px"><b>${new Date(s.date+'T12:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})} · ${esc(s.time)}</b> — ${esc(s.name||SPORTS[s.sport].n)}
+    <div class="sm mut">${hm(s.dur)}${s.done?' · ✓ réalisée':' · prévue'}${s.src?' · '+esc(s.src):''}</div></div>
+    <div class="row" style="gap:6px">
+      <select style="width:auto;padding:5px 8px;font-size:13px" title="Sport" onchange="editSession('${s.id}','sport',this.value)">${sOpt(s.sport)}</select>
+      <select style="width:auto;padding:5px 8px;font-size:13px" title="Intensité" onchange="editSession('${s.id}','int',+this.value)">${iOpt(s.int)}</select>
+      <input type="number" min="5" step="5" value="${s.dur}" title="Durée (min)" style="width:70px;padding:5px 8px;font-size:13px" onchange="editSession('${s.id}','dur',+this.value)">
+      <input type="time" value="${esc(s.time)}" title="Heure" style="width:auto;padding:5px 8px;font-size:13px" onchange="editSession('${s.id}','time',this.value)">
+      <button class="x" title="Supprimer" onclick="delSession('${s.id}')">✕</button>
+    </div></div>`).join(''):'<p class="mut sm">Aucune séance. Ajoute ta première ci-dessus.</p>';
 }
+/* corrections manuelles : gardées même après une nouvelle synchro */
+function editSession(id,k,val){
+  const s=S.sessions.find(x=>x.id===id);if(!s||(k!=='time'&&!val))return;
+  s[k]=val;S.ovr=S.ovr||{};S.ovr[id]={...(S.ovr[id]||{}),[k]:val};
+  save();renderSessions();renderToday();toast('Séance mise à jour');
+}
+function applyOvr(){const h=S.hide||[];S.sessions=S.sessions.filter(s=>!h.includes(s.id));const o=S.ovr||{};S.sessions.forEach(s=>{if(o[s.id])Object.assign(s,o[s.id])})}
 function addSession(){
   const s={id:Math.random().toString(36).slice(2),date:v('sDate'),time:v('sTime')||'18:00',sport:v('sSport'),dur:+v('sDur')||60,int:+v('sInt'),name:v('sName').trim()};
   if(!s.date)return toast('Choisis une date');
   S.sessions.push(s);save();document.getElementById('sName').value='';renderSessions();renderToday();
 }
-function delSession(id){S.sessions=S.sessions.filter(s=>s.id!==id);save();renderSessions();renderToday()}
+function delSession(id){S.sessions=S.sessions.filter(s=>s.id!==id);if(S.ovr)delete S.ovr[id];if(/^(icu|ics|stv)/.test(id)){S.hide=S.hide||[];if(!S.hide.includes(id))S.hide.push(id);S.hide=S.hide.slice(-300)}save();renderSessions();renderToday()}
 function v(id){return document.getElementById(id).value}
 function setv(id,x){document.getElementById(id).value=x}
 
@@ -428,6 +452,74 @@ async function icuGet(kind,oldest,newest){
   if(!r.ok)throw new Error(r.status===401?'ID ou clé refusés':(d.error||'HTTP '+r.status));
   return d;
 }
+/* devine le sport et l'intensité d'après le nom de la séance */
+function guessSport(t){
+  t=(t||'').toLowerCase();
+  if(/\b(v[ée]lo|bike|ride|cycl|ht\b|home ?trainer|zwift|gravel|vtt)/.test(t))return'bike';
+  if(/\b(nat|swim|piscine|crawl|eau libre)/.test(t))return'swim';
+  if(/\btrail/.test(t))return'trail';
+  if(/\b(muscu|renfo|gainage|ppg|strength|gym)/.test(t))return'strength';
+  if(/\b(run|course|footing|cap\b|sprint|fractionn|vma|piste)/.test(t))return'run';
+  return null;
+}
+function guessInt(t){
+  t=(t||'').toLowerCase();
+  if(/r[ée]cup|recovery|d[ée]crassage/.test(t))return 1;
+  if(/sprint|vo2|vma|sv2|test|pma|30-30|30\/30|comp[ée]t|course\b.*objectif|race/.test(t))return 4;
+  if(/seuil|sv1|tempo|threshold|sweet|\d+\s*[x×]\s*\d/.test(t))return 3;
+  return 2;
+}
+function guessDur(t){
+  t=t||'';let m=t.match(/(\d{1,2})\s*h\s*(\d{2})?/i);if(m)return(+m[1])*60+(+(m[2]||0));
+  m=t.match(/\((\d{2,3})\s*['’]\)/)||t.match(/\b(\d{2,3})\s*(?:min|mn|['’])(?!\s*[x×])/i);if(m&&+m[1]>=15)return+m[1];
+  return null;
+}
+function parseICS(txt){
+  const lines=txt.replace(/\r\n[ \t]/g,'').replace(/\n[ \t]/g,'').split(/\r?\n/),out=[];let ev=null;
+  const un=v=>v.replace(/\\n/gi,' ').replace(/\\([,;\\])/g,'$1');
+  const dt=v=>{const m=v.match(/(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?/);if(!m)return null;
+    if(!m[4])return{date:`${m[1]}-${m[2]}-${m[3]}`,time:null,allDay:true};
+    if(m[7]){const d=new Date(Date.UTC(+m[1],m[2]-1,+m[3],+m[4],+m[5]));return{date:iso(d),time:String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'),ms:d.getTime()}}
+    return{date:`${m[1]}-${m[2]}-${m[3]}`,time:`${m[4]}:${m[5]}`,ms:new Date(+m[1],m[2]-1,+m[3],+m[4],+m[5]).getTime()}};
+  for(const l of lines){
+    if(l==='BEGIN:VEVENT'){ev={};continue}
+    if(l==='END:VEVENT'){if(ev&&ev.start)out.push(ev);ev=null;continue}
+    if(!ev)continue;
+    const i=l.indexOf(':');if(i<0)continue;const k=l.slice(0,i).split(';')[0].toUpperCase(),v=l.slice(i+1);
+    if(k==='DTSTART')ev.start=dt(v);else if(k==='DTEND')ev.end=dt(v);else if(k==='SUMMARY')ev.sum=un(v);
+    else if(k==='DESCRIPTION')ev.desc=un(v);else if(k==='UID')ev.uid=v;
+    else if(k==='DURATION'){const m=v.match(/PT?(?:(\d+)H)?(?:(\d+)M)?/);if(m)ev.durMin=(+(m[1]||0))*60+(+(m[2]||0))}
+  }
+  return out;
+}
+async function importICS(manual){
+  const msg=document.getElementById('icsMsg');
+  if(manual){const u=v('icsUrl').trim();if(!u)return msg.textContent='Colle d\'abord le lien de l\'agenda.';S.ics=u;save()}
+  if(!S.ics)return;
+  msg.textContent='Lecture de l\'agenda…';
+  try{
+    const r=await fetch('/api/ics',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:S.ics})});
+    if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error||'HTTP '+r.status)}
+    const evs=parseICS(await r.text()),t=iso(new Date()),to=addDays(t,10);
+    S.sessions=S.sessions.filter(s=>s.src!=='Agenda'||s.date<t);
+    let n=0;
+    evs.forEach(e=>{
+      const d=e.start.date;if(d<t||d>to)return;
+      const name=(e.sum||'').trim(),txt=name+' '+(e.desc||'');
+      const sport=guessSport(txt)||P().sport||'run';
+      if(S.sessions.some(s=>s.done&&s.date===d&&s.sport===sport))return; // déjà réalisée
+      let dur=guessDur(txt)||e.durMin||(e.end&&e.start.ms&&e.end.ms?Math.round((e.end.ms-e.start.ms)/6e4):null)||60;
+      if(dur<10||dur>600)dur=60;
+      const id='ics'+(e.uid||d+name).replace(/[^\w-]/g,'').slice(0,60);
+      S.sessions.push({id,date:d,time:e.start.time||'18:00',sport,dur,int:guessInt(txt),name,src:'Agenda'});n++;
+    });
+    applyOvr();save();renderSessions();renderToday();
+    document.getElementById('icsStatus').textContent='connecté ✓';
+    msg.textContent=`${n} séance(s) prévue(s) importée(s) sur les 10 prochains jours.`;
+    if(manual)toast('Agenda importé ✓');
+  }catch(e){msg.textContent='Échec : '+e.message}
+}
+
 async function importICU(manual){
   const msg=document.getElementById('icuMsg');
   if(manual){const id=v('icuId').trim(),key=v('icuKey').trim();if(!id||!key)return msg.textContent='Renseigne l\'ID et la clé.';S.icu={id,key};save()}
@@ -441,7 +533,7 @@ async function importICU(manual){
     let nA=0,nE=0;
     (acts||[]).forEach(a=>{
       const [date,tm]=(a.start_date_local||'').split('T');if(!date)return;
-      const sport=ICUMAP[a.type]||'other',dur=Math.max(5,Math.round((a.moving_time||a.elapsed_time||0)/60));
+      const sport=ICUMAP[a.type]||guessSport(a.name)||'other',dur=Math.max(5,Math.round((a.moving_time||a.elapsed_time||0)/60));
       const i=S.sessions.findIndex(s=>s.date===date&&s.sport===sport&&!s.done);if(i>=0)S.sessions.splice(i,1);
       S.sessions.push({id:'icuA'+a.id,date,time:(tm||'12:00').slice(0,5),sport,dur,int:icuInt(a.icu_training_load,dur,a.average_heartrate,a.icu_weighted_avg_watts,sport,a.icu_intensity,a.name),name:a.name||'',src:'Intervals.icu',done:true});nA++;
     });
@@ -452,7 +544,7 @@ async function importICU(manual){
       const dur=Math.round((e.moving_time||e.time_target||3600)/60),time=(tm||'').slice(0,5);
       S.sessions.push({id:'icuE'+e.id,date,time:!time||time==='00:00'?'18:00':time,sport,dur,int:icuInt(e.icu_training_load,dur,null,null,sport,e.icu_intensity,e.name),name:e.name||'',src:'Intervals.icu'});nE++;
     });
-    save();renderSessions();renderToday();
+    applyOvr();save();renderSessions();renderToday();
     document.getElementById('icuStatus').textContent='connecté ✓';
     msg.textContent=`${nA} activité(s) réalisée(s) et ${nE} séance(s) prévue(s) synchronisées.`;
     if(manual)toast('Intervals.icu synchronisé ✓');
@@ -587,6 +679,7 @@ const opts=Object.entries(SPORTS).map(([k,s])=>`<option value="${k}">${s.n}</opt
 document.getElementById('sSport').innerHTML=opts;document.getElementById('pSport').innerHTML=opts;
 setv('sDate',iso(new Date()));fillProfile();setv('sSport',P().sport);
 if(S.icu){setv('icuId',S.icu.id||'');setv('icuKey',S.icu.key||'')}
+if(S.ics)setv('icsUrl',S.ics);
 renderToday();renderSessions();renderRecipes();raceUI();
 {const h=location.hash.slice(1);if(['today','week','race','recipes','profile'].includes(h))go(h)}
 {const q=new URLSearchParams(location.search).get('strava');
@@ -594,7 +687,7 @@ renderToday();renderSessions();renderRecipes();raceUI();
    const M={ok:'Strava connecté ✓',refuse:'Connexion Strava annulée',etat:'Connexion Strava expirée, réessaie',echec:'Strava a refusé la connexion'};toast(M[q]||'Strava');}
  if(location.protocol.startsWith('http')){
    fetch('/api/strava/enabled').then(r=>r.json()).then(d=>{if(d.enabled){document.getElementById('stvCard').classList.remove('hidden');if(q==='ok'||S.stravaOn)syncStrava(false)}}).catch(()=>{});
-   importICU(false);
+   importICU(false).then(()=>importICS(false));
  }}
 </script>
 </body>
