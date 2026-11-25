@@ -238,7 +238,7 @@ footer{max-width:980px;margin:auto;padding:10px 16px 40px;color:var(--mut);font-
       <div><label>FTP vélo en watts (facultatif)</label><input type="number" id="pFTP" placeholder="ex. 250"></div>
     </div>
     <h3 style="margin-top:16px">Objectifs fixés par ton diététicien·ne ou coach (facultatif)</h3>
-    <p class="sm mut" style="margin:0 0 8px">Laisse vide pour que Ravito calcule. Les calories sont ta <b>base de chaque jour</b> (repos compris). Protéines et lipides restent fixes ; les jours de séances longues ou intenses, Ravito <b>ajoute des glucides</b> avant, pendant et après l'effort.</p>
+    <p class="sm mut" style="margin:0 0 8px">Laisse vide pour que Ravito calcule. Les calories sont ta <b>base de chaque jour</b>, repos compris, pensée pour la perte de poids : les calories dépensées ne sont <b>pas</b> rajoutées. Seuls les glucides pris pendant les séances de plus de 75 min et une petite récupération après les séances de 90 min et plus s'ajoutent ; sinon les glucides sont déplacés vers les repas autour des séances.</p>
     <div class="grid g4">
       <div><label>Calories de référence (kcal/jour)</label><input type="number" id="pKcal" placeholder="ex. 2700"></div>
       <div><label>Protéines (g/jour)</label><input type="number" id="pProt" placeholder="ex. 180"></div>
@@ -340,13 +340,12 @@ function dayPlan(d){
     // + glucides ajoutés autour des séances longues ou intenses
     fat=p.fat||Math.max(0.8*p.w,p.kcal*0.26/9);
     carbs=Math.max(2*p.w,(p.kcal-prot*4-fat*9)/4);
+    // objectif de perte de poids : on n'ajoute pas les calories dépensées.
+    // Seule une petite récupération après les séances ≥ 90 min est ajoutée ;
+    // le reste est réparti autrement entre les repas (code couleur).
     ss.forEach(s=>{
-      const long=s.dur>=90,hard=s.int>=3&&s.dur>=45;
-      if(s.dur>=120){extra+=0.5*p.w;extraWhy.push('avant '+(s.name||'la séance longue'))}
-      if(long||hard){const g=Math.min(1,s.dur/120)*0.8*p.w;extra+=g;extraWhy.push('récupération '+(s.name||''))}
+      if(s.dur>=90){const g=0.4*p.w;extra+=g;extraWhy.push('récupération '+(s.name||'séance longue'))}
     });
-    // grosse séance demain matin ou longue demain : un peu plus au dîner
-    if(daySess(addDays(d,1)).some(s=>s.dur>=150||(s.dur>=90&&mins(s.time)<720))){extra+=0.5*p.w;extraWhy.push('séance longue demain')}
     carbs+=extra;
     cpk=carbs/p.w;
   }else{
@@ -356,7 +355,10 @@ function dayPlan(d){
   energy=carbs*4+prot*4+fat*9;
   const intra=ss.reduce((a,s)=>a+during(s).total,0);
   let mealCarbs=Math.max(carbs*0.6,carbs-intra);
-  if(p.kcal){mealCarbs=carbs;carbs+=intra;energy=carbs*4+prot*4+fat*9}
+  if(p.kcal){
+    const intraRef=ss.filter(s=>s.dur>75).reduce((a,s)=>a+during(s).total,0);
+    mealCarbs=carbs;carbs+=intraRef;energy=carbs*4+prot*4+fat*9;
+  }
   // repas
   const mt=(p.meals||['07:30','12:30','16:30','19:45']).map(mins);
   const tomorrow=daySess(addDays(d,1));
@@ -378,7 +380,7 @@ function dayPlan(d){
   let tot=meals.reduce((a,m)=>a+wt[m.code]*(m.name==='Collation'?0.5:1),0);
   const fw=m=>(m.name==='Collation'?0.5:1)*(m.code==='hi'?0.8:1.1),ftot=meals.reduce((a,m)=>a+fw(m),0);
   meals.forEach(m=>{const f=(m.name==='Collation'?0.5:1);m.c=mealCarbs*wt[m.code]*f/tot;m.p=prot*f/3.5;m.f=fat*fw(m)/ftot});
-  return{L,cpk:carbs/p.w,extra,extraWhy,carbs,intra:carbs-mealCarbs,prot,fat,energy,exK,meals,ss,level:dayLevel(L)};
+  return{L,cpk:carbs/p.w,extra,extraWhy,carbs,intra:Math.max(0,carbs-mealCarbs),prot,fat,energy,exK,meals,ss,level:dayLevel(L)};
 }
 
 /* ---------- menus concrets ----------
