@@ -1,49 +1,33 @@
 # Ravito
 
 Nutrition calée sur l'entraînement : glucides du jour et code couleur de chaque repas selon tes séances, plan de ravitaillement de course, recettes.
-Connecteurs : **Strava** (activités réalisées) et **Intervals.icu** (séances planifiées, reçoit Garmin et TrainingPeaks).
 
-- Pas de base de données. Le profil et les séances restent dans le navigateur de chaque utilisateur.
-- La connexion Strava est gardée dans un cookie chiffré (AES-256-GCM).
-- Hébergement gratuit sur Vercel (offre Hobby).
+**Connecteur principal : Intervals.icu (gratuit).** Il récupère tes activités depuis Garmin, Coros, Wahoo, Polar, Suunto ou Zwift, et tes séances prévues. Ravito importe les activités réalisées des 3 derniers jours et les séances des 7 prochains jours, à chaque ouverture.
 
-## Mise en ligne (environ 15 min)
+- Pas de base de données. Le profil, les séances et la clé Intervals.icu restent dans le navigateur de chaque utilisateur.
+- Hébergement gratuit sur Vercel (offre Hobby). Aucune variable d'environnement n'est nécessaire.
 
-### 1. Déployer sur Vercel
-1. Va sur https://vercel.com, connecte-toi avec GitHub.
-2. **Add New → Project**, choisis ce dépôt, puis **Deploy** (aucun réglage à changer).
-3. Note l'adresse obtenue, par ex. `ravito-xxx.vercel.app`.
+## Mise en ligne
+1. Sur https://vercel.com : **Add New → Project**, choisis ce dépôt, puis **Deploy**.
+2. Chaque push sur `main` redéploie automatiquement.
 
-### 2. Créer l'app Strava
-1. Va sur https://www.strava.com/settings/api.
-2. Remplis le formulaire :
-   - Application Name : `Ravito`
-   - Category : `Training`
-   - Website : `https://ravito-xxx.vercel.app`
-   - **Authorization Callback Domain** : `ravito-xxx.vercel.app` (sans `https://`)
-3. Note le **Client ID** et le **Client Secret**.
+## Connecter sa montre (chaque utilisateur)
+1. Crée un compte gratuit sur https://intervals.icu.
+2. **Settings → Connections** : connecte Garmin Connect (ou ta marque de montre).
+3. **Settings → Developer Settings** : copie l'**Athlete ID** (ex. `i12345`) et génère une **API Key**.
+4. Dans Ravito, onglet **Séances → Connecteurs → Intervals.icu** : colle les deux, puis **Connecter et synchroniser**.
 
-### 3. Ajouter les secrets dans Vercel
-Projet → **Settings → Environment Variables** :
+Les activités arrivées dans Intervals.icu *via Strava* ne sont pas lisibles par API (restriction de Strava). Connecte la montre directement à Intervals.icu.
 
-| Nom | Valeur |
-|---|---|
-| `STRAVA_CLIENT_ID` | le Client ID Strava |
-| `STRAVA_CLIENT_SECRET` | le Client Secret Strava |
-| `SESSION_SECRET` | une longue chaîne aléatoire (40 caractères ou plus) |
-
-Ensuite : **Deployments → … → Redeploy** pour les prendre en compte.
-
-### 4. Ouvrir l'app
-Va sur ton adresse Vercel, onglet **Séances**, puis **Connecter Strava**.
-Sur téléphone : menu du navigateur → « Ajouter à l'écran d'accueil ».
-
-## Ouvrir à des amis
-Strava limite une nouvelle app à **1 athlète** (toi). Pour en ajouter, fais une demande d'augmentation via le formulaire indiqué sur https://www.strava.com/settings/api (« Rate limits / athlete capacity »). Chaque ami se connecte ensuite avec son propre Strava ; ses données restent dans son navigateur.
+## Strava (optionnel, payant)
+Strava réserve désormais son API aux abonnés. Si tu as un abonnement :
+1. Crée une app sur https://www.strava.com/settings/api (Authorization Callback Domain : ton domaine `xxx.vercel.app`, sans `https://`).
+2. Dans Vercel → Settings → Environment Variables, ajoute `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET` et `SESSION_SECRET` (40 caractères aléatoires ou plus), puis redéploie.
+3. Le bouton **Connecter Strava** apparaît alors dans l'app. Une nouvelle app Strava est limitée à 1 athlète ; pour plus, fais une demande à Strava.
 
 ## Garmin et Nolio
-- **Garmin** : l'API officielle est réservée aux partenaires validés par Garmin. Relie Garmin Connect à Strava ou à Intervals.icu : tes activités arrivent automatiquement.
-- **Nolio** : pas d'API publique ouverte. Il faut demander un accès à Nolio ; le dossier `api/` est prêt à recevoir un connecteur sur le modèle de `api/strava/`.
+- **Garmin** : l'API officielle est réservée aux partenaires validés. Passe par Intervals.icu.
+- **Nolio** : pas d'API publique ouverte. Le dossier `api/` peut accueillir un connecteur sur le modèle de `api/icu.js` si Nolio t'ouvre un accès.
 
 ## Structure
 ```
@@ -53,7 +37,8 @@ api/strava/login.js   redirection vers Strava (OAuth)
 api/strava/callback.js retour de Strava, enregistre la connexion
 api/strava/activities.js activités des N derniers jours
 api/strava/logout.js  déconnexion et révocation
-api/icu.js            relais vers l'API Intervals.icu
+api/icu.js            relais vers l'API Intervals.icu (activités et séances prévues)
+api/strava/enabled.js indique si les clés Strava sont configurées
 ```
 
 Estimations basées sur les recommandations publiques de nutrition du sport ; ce n'est pas un avis médical.

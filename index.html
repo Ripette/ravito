@@ -55,7 +55,7 @@ td,th{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left}
 .note{font-size:12px;color:var(--mut);margin-top:8px}
 .warn{background:rgba(229,100,90,.1);border:1px solid rgba(229,100,90,.35);border-radius:10px;padding:10px;font-size:13px}
 .legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
-.hidden{display:none}
+.hidden{display:none!important}
 footer{max-width:980px;margin:auto;padding:10px 16px 40px;color:var(--mut);font-size:12px}
 </style>
 </head>
@@ -128,6 +128,20 @@ footer{max-width:980px;margin:auto;padding:10px 16px 40px;color:var(--mut);font-
   <div class="card">
     <h2>Connecteurs</h2>
     <div class="sess" style="display:block">
+      <b>Intervals.icu</b> <span class="sm mut" id="icuStatus">gratuit · Garmin, Coros, Wahoo, Polar, Suunto, Zwift</span>
+      <p class="sm mut" style="margin:4px 0 8px">Importe tes <b>activités réalisées</b> (3 derniers jours) et tes <b>séances prévues</b> (7 prochains jours). Relie d'abord ta montre dans Intervals.icu → Settings → Connections (ex. Garmin Connect). Puis copie ton ID et ta clé dans Settings → Developer Settings. La clé reste dans ce navigateur ; la synchro se refait à chaque ouverture.</p>
+      <div class="grid g3">
+        <div><label>ID athlète (ex. i12345)</label><input id="icuId"></div>
+        <div><label>Clé API</label><input id="icuKey" type="password"></div>
+        <div style="align-self:end"><button class="b" onclick="importICU(true)">Connecter et synchroniser</button></div>
+      </div>
+      <p class="note" id="icuMsg"></p>
+    </div>
+    <div class="sess" style="display:block">
+      <b>Garmin · Nolio · Strava</b>
+      <p class="sm mut" style="margin:4px 0 0">Garmin : relie-le à Intervals.icu, tout arrive ici. Nolio : pas d'API publique, ajoute tes séances prévues à la main. Strava : son API demande désormais un abonnement payant ; le connecteur s'active si tu configures tes clés Strava.</p>
+    </div>
+    <div class="sess hidden" id="stvCard" style="display:block">
       <div class="row" style="justify-content:space-between">
         <div><b>Strava</b> <span class="sm mut" id="stvStatus">non connecté</span></div>
         <div class="row">
@@ -138,20 +152,7 @@ footer{max-width:980px;margin:auto;padding:10px 16px 40px;color:var(--mut);font-
       </div>
       <p class="sm mut" style="margin:6px 0 0">Importe tes activités réalisées des 3 derniers jours (Garmin, Coros, Wahoo, Zwift… s'ils sont reliés à Strava). Elles remplacent la séance prévue du même jour et du même sport, et recalculent tes repas de récupération.</p>
     </div>
-    <div class="sess" style="display:block">
-      <b>Intervals.icu</b> <span class="sm mut">séances planifiées des 7 prochains jours</span>
-      <p class="sm mut" style="margin:4px 0 8px">Gratuit. Reçoit les séances de Garmin Connect, TrainingPeaks et d'autres calendriers. Clé dans Intervals.icu → Settings → Developer Settings. Elle reste dans ce navigateur.</p>
-      <div class="grid g3">
-        <div><label>ID athlète (ex. i12345)</label><input id="icuId"></div>
-        <div><label>Clé API</label><input id="icuKey" type="password"></div>
-        <div style="align-self:end"><button class="b" onclick="importICU()">Importer</button></div>
-      </div>
-      <p class="note" id="icuMsg"></p>
-    </div>
-    <div class="sess" style="display:block">
-      <b>Garmin · Nolio</b> <span class="pill p-lo">bientôt</span>
-      <p class="sm mut" style="margin:4px 0 0">Leurs API sont réservées aux partenaires validés. En attendant : Garmin passe par Strava ou Intervals.icu automatiquement ; pour Nolio, ajoute tes séances prévues à la main ou via Intervals.icu.</p>
-    </div>
+
   </div>
 </section>
 
@@ -408,24 +409,49 @@ function exportData(){const a=document.createElement('a');const d={...S,icu:{id:
 function importData(inp){const f=inp.files[0];if(!f)return;f.text().then(t=>{try{const d=JSON.parse(t);if(!Array.isArray(d.sessions))throw 0;S={profile:d.profile||null,sessions:d.sessions,icu:d.icu||{}};save();location.reload()}catch(e){toast('Fichier invalide')}})}
 
 /* ---------- Intervals.icu ---------- */
-async function importICU(){
-  const id=v('icuId').trim(),key=v('icuKey').trim(),msg=document.getElementById('icuMsg');
-  if(!id||!key)return msg.textContent='Renseigne l\'ID et la clé.';
-  S.icu={id,key};save();msg.textContent='Import en cours…';
-  const t=iso(new Date()),from=addDays(t,-1),to=addDays(t,7);
-  const map={Run:'run',VirtualRun:'run',TrailRun:'trail',Ride:'bike',VirtualRide:'bike',GravelRide:'bike',MountainBikeRide:'bike',Swim:'swim',OpenWaterSwim:'swim',WeightTraining:'strength',Rowing:'row',NordicSki:'ski',Hike:'hike',Walk:'hike'};
+const ICUMAP={Run:'run',VirtualRun:'run',TrailRun:'trail',Ride:'bike',VirtualRide:'bike',GravelRide:'bike',MountainBikeRide:'bike',EBikeRide:'bike',Swim:'swim',OpenWaterSwim:'swim',WeightTraining:'strength',Rowing:'row',NordicSki:'ski',Hike:'hike',Walk:'hike',Soccer:'team'};
+function icuInt(load,min,hr,watts,sport){
+  const p=P();
+  if(sport==='bike'&&watts&&p.ftp){const f=watts/p.ftp;return f<0.6?1:f<0.78?2:f<0.9?3:4}
+  if(hr&&p.hrmax){const f=hr/p.hrmax;return f<0.68?1:f<0.79?2:f<0.87?3:4}
+  if(load&&min){const lph=load/(min/60);return lph<40?1:lph<65?2:lph<85?3:4}
+  return 2;
+}
+async function icuGet(kind,oldest,newest){
+  const r=await fetch('/api/icu',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:S.icu.id,key:S.icu.key,oldest,newest,kind})});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(r.status===401?'ID ou clé refusés':(d.error||'HTTP '+r.status));
+  return d;
+}
+async function importICU(manual){
+  const msg=document.getElementById('icuMsg');
+  if(manual){const id=v('icuId').trim(),key=v('icuKey').trim();if(!id||!key)return msg.textContent='Renseigne l\'ID et la clé.';S.icu={id,key};save()}
+  if(!S.icu||!S.icu.id||!S.icu.key)return;
+  msg.textContent='Synchronisation…';
+  const t=iso(new Date()),from=addDays(t,-3),to=addDays(t,7);
   try{
-    const r=await fetch('/api/icu',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,key,oldest:from,newest:to})});
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    const ev=await r.json();let n=0;
+    const [acts,evs]=await Promise.all([icuGet('activities',from,t),icuGet('events',t,to)]);
+    // on remplace tout ce qui venait d'Intervals.icu sur la période
     S.sessions=S.sessions.filter(s=>s.src!=='Intervals.icu'||s.date<from);
-    ev.filter(e=>e.category==='WORKOUT').forEach(e=>{
-      const dur=Math.round((e.moving_time||e.time_target||3600)/60),load=e.icu_training_load||0,lph=load/(dur/60);
-      const int=!load?2:lph<40?1:lph<65?2:lph<85?3:4;
-      const [d,tm]=(e.start_date_local||'').split('T');
-      S.sessions.push({id:'icu'+e.id,date:d,time:(tm||'18:00').slice(0,5)==='00:00'?'18:00':(tm||'18:00').slice(0,5),sport:map[e.type]||'other',dur,int,name:e.name||'',src:'Intervals.icu'});n++});
-    save();renderSessions();renderToday();msg.textContent=`${n} séance(s) planifiée(s) importée(s).`;
-  }catch(e){msg.textContent='Échec de l\'import ('+e.message+'). Vérifie l\'ID et la clé. '}
+    let nA=0,nE=0;
+    (acts||[]).forEach(a=>{
+      const [date,tm]=(a.start_date_local||'').split('T');if(!date)return;
+      const sport=ICUMAP[a.type]||'other',dur=Math.max(5,Math.round((a.moving_time||a.elapsed_time||0)/60));
+      const i=S.sessions.findIndex(s=>s.date===date&&s.sport===sport&&!s.done);if(i>=0)S.sessions.splice(i,1);
+      S.sessions.push({id:'icuA'+a.id,date,time:(tm||'12:00').slice(0,5),sport,dur,int:icuInt(a.icu_training_load,dur,a.average_heartrate,a.icu_weighted_avg_watts,sport),name:a.name||'',src:'Intervals.icu',done:true});nA++;
+    });
+    (evs||[]).filter(e=>e.category==='WORKOUT').forEach(e=>{
+      const [date,tm]=(e.start_date_local||'').split('T');if(!date)return;
+      const sport=ICUMAP[e.type]||'other';
+      if(S.sessions.some(s=>s.done&&s.date===date&&s.sport===sport))return; // déjà réalisée
+      const dur=Math.round((e.moving_time||e.time_target||3600)/60),time=(tm||'').slice(0,5);
+      S.sessions.push({id:'icuE'+e.id,date,time:!time||time==='00:00'?'18:00':time,sport,dur,int:icuInt(e.icu_training_load,dur,null,null,sport),name:e.name||'',src:'Intervals.icu'});nE++;
+    });
+    save();renderSessions();renderToday();
+    document.getElementById('icuStatus').textContent='connecté ✓';
+    msg.textContent=`${nA} activité(s) réalisée(s) et ${nE} séance(s) prévue(s) synchronisées.`;
+    if(manual)toast('Intervals.icu synchronisé ✓');
+  }catch(e){msg.textContent='Échec : '+e.message+'. Vérifie l\'ID (commence par i) et la clé.'}
 }
 
 /* ---------- Strava ---------- */
@@ -561,7 +587,10 @@ renderToday();renderSessions();renderRecipes();raceUI();
 {const q=new URLSearchParams(location.search).get('strava');
  if(q){history.replaceState(null,'',location.pathname+location.hash);
    const M={ok:'Strava connecté ✓',refuse:'Connexion Strava annulée',etat:'Connexion Strava expirée, réessaie',echec:'Strava a refusé la connexion'};toast(M[q]||'Strava');}
- if(location.protocol.startsWith('http')&&(q==='ok'||S.stravaOn))syncStrava(false);}
+ if(location.protocol.startsWith('http')){
+   fetch('/api/strava/enabled').then(r=>r.json()).then(d=>{if(d.enabled){document.getElementById('stvCard').classList.remove('hidden');if(q==='ok'||S.stravaOn)syncStrava(false)}}).catch(()=>{});
+   importICU(false);
+ }}
 </script>
 </body>
 </html>
