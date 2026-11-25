@@ -238,9 +238,9 @@ footer{max-width:980px;margin:auto;padding:10px 16px 40px;color:var(--mut);font-
       <div><label>FTP vélo en watts (facultatif)</label><input type="number" id="pFTP" placeholder="ex. 250"></div>
     </div>
     <h3 style="margin-top:16px">Objectifs fixés par ton diététicien·ne ou coach (facultatif)</h3>
-    <p class="sm mut" style="margin:0 0 8px">Laisse vide pour que Ravito calcule. Les calories sont une <b>moyenne sur 7 jours</b> : plus les jours durs, moins au repos. Protéines et lipides sont fixes chaque jour ; les <b>glucides</b> varient avec l'entraînement et complètent les calories.</p>
+    <p class="sm mut" style="margin:0 0 8px">Laisse vide pour que Ravito calcule. Les calories sont ta <b>base de chaque jour</b> (repos compris). Protéines et lipides restent fixes ; les jours de séances longues ou intenses, Ravito <b>ajoute des glucides</b> avant, pendant et après l'effort.</p>
     <div class="grid g4">
-      <div><label>Calories moyennes (kcal/jour)</label><input type="number" id="pKcal" placeholder="ex. 2700"></div>
+      <div><label>Calories de référence (kcal/jour)</label><input type="number" id="pKcal" placeholder="ex. 2700"></div>
       <div><label>Protéines (g/jour)</label><input type="number" id="pProt" placeholder="ex. 180"></div>
       <div><label>Lipides (g/jour)</label><input type="number" id="pFat" placeholder="ex. 79"></div>
     </div>
@@ -334,20 +334,29 @@ function dayPlan(d){
   const exK=ss.reduce((a,s)=>a+kcal(s),0);
   let energy=modelEnergy(d),carbs,fat;
   const prot=p.prot||(p.goal==='loss'?2.0:1.8)*p.w;
+  let extra=0,extraWhy=[];
   if(p.kcal){
-    // objectif moyen imposé : on garde les variations du modèle, recalées sur la moyenne des 7 jours autour
-    let sum=0;for(let i=-3;i<=3;i++)sum+=modelEnergy(addDays(d,i));
-    energy=p.kcal*Math.pow(energy/(sum/7),0.8);
-    // lipides : part un peu plus faible les jours durs, minimum 0,8 g/kg ; le reste en glucides
-    fat=p.fat||Math.max(0.8*p.w,energy*(L>=1.8?0.22:L>=0.75?0.25:0.28)/9);
-    carbs=Math.max(2*p.w,(energy-prot*4-fat*9)/4);
+    // objectif de référence (diététicien·ne) : base fixe chaque jour,
+    // + glucides ajoutés autour des séances longues ou intenses
+    fat=p.fat||Math.max(0.8*p.w,p.kcal*0.26/9);
+    carbs=Math.max(2*p.w,(p.kcal-prot*4-fat*9)/4);
+    ss.forEach(s=>{
+      const long=s.dur>=90,hard=s.int>=3&&s.dur>=45;
+      if(s.dur>=120){extra+=0.5*p.w;extraWhy.push('avant '+(s.name||'la séance longue'))}
+      if(long||hard){const g=Math.min(1,s.dur/120)*0.8*p.w;extra+=g;extraWhy.push('récupération '+(s.name||''))}
+    });
+    // grosse séance demain matin ou longue demain : un peu plus au dîner
+    if(daySess(addDays(d,1)).some(s=>s.dur>=150||(s.dur>=90&&mins(s.time)<720))){extra+=0.5*p.w;extraWhy.push('séance longue demain')}
+    carbs+=extra;
     cpk=carbs/p.w;
   }else{
     carbs=cpk*p.w;
     fat=p.fat||Math.max((energy-carbs*4-prot*4)/9,0.8*p.w);
   }
   energy=carbs*4+prot*4+fat*9;
-  const intra=ss.reduce((a,s)=>a+during(s).total,0), mealCarbs=Math.max(carbs*0.6,carbs-intra);
+  const intra=ss.reduce((a,s)=>a+during(s).total,0);
+  let mealCarbs=Math.max(carbs*0.6,carbs-intra);
+  if(p.kcal){mealCarbs=carbs;carbs+=intra;energy=carbs*4+prot*4+fat*9}
   // repas
   const mt=(p.meals||['07:30','12:30','16:30','19:45']).map(mins);
   const tomorrow=daySess(addDays(d,1));
@@ -369,7 +378,7 @@ function dayPlan(d){
   let tot=meals.reduce((a,m)=>a+wt[m.code]*(m.name==='Collation'?0.5:1),0);
   const fw=m=>(m.name==='Collation'?0.5:1)*(m.code==='hi'?0.8:1.1),ftot=meals.reduce((a,m)=>a+fw(m),0);
   meals.forEach(m=>{const f=(m.name==='Collation'?0.5:1);m.c=mealCarbs*wt[m.code]*f/tot;m.p=prot*f/3.5;m.f=fat*fw(m)/ftot});
-  return{L,cpk,carbs,intra:carbs-mealCarbs,prot,fat,energy,exK,meals,ss,level:dayLevel(L)};
+  return{L,cpk:carbs/p.w,extra,extraWhy,carbs,intra:carbs-mealCarbs,prot,fat,energy,exK,meals,ss,level:dayLevel(L)};
 }
 
 /* ---------- menus concrets ----------
@@ -540,7 +549,7 @@ function renderToday(){
   document.getElementById('dayPill').innerHTML=`<span class="pill ${CODE[D.level].c}">Journée ${CODE[D.level].t.toLowerCase().replace('charge ','')}</span>`;
   document.getElementById('dayStats').innerHTML=
     `<div class="stat"><b>${r5(D.energy)}</b><span>kcal estimées</span></div>
-     <div class="stat"><b>${r5(D.carbs)} g</b><span>glucides (${D.cpk.toFixed(1)} g/kg)${D.intra>0?` dont ${r5(D.intra)} g pendant l'effort`:''}</span></div>
+     <div class="stat"><b>${r5(D.carbs)} g</b><span>glucides (${D.cpk.toFixed(1)} g/kg)${D.extra>0?` · +${r5(D.extra)} g autour des séances`:''}${D.intra>0?` · dont ${r5(D.intra)} g pendant l'effort`:''}</span></div>
      <div class="stat"><b>${r5(D.prot)} g</b><span>protéines</span></div>
      <div class="stat"><b>${r5(D.fat)} g</b><span>lipides</span></div>`;
   document.getElementById('dayWhy').textContent=D.ss.length?`${D.ss.length} séance(s), ${hm(D.ss.reduce((a,s)=>a+s.dur,0))} au total, ~${r5(D.exK)} kcal dépensées à l'entraînement.`:'Jour sans séance : on mange moins de glucides, mais on garde les protéines.';

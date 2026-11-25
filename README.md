@@ -8,7 +8,7 @@ Nutrition calée sur l'entraînement : glucides du jour et code couleur de chaqu
 - Hébergement gratuit sur Vercel (offre Hobby). Aucune variable d'environnement n'est nécessaire.
 
 ## Objectifs imposés (diététicien·ne, coach)
-Dans **Profil**, trois champs facultatifs : **calories moyennes** (kcal/jour), **protéines** et **lipides** (g/jour). Les calories sont tenues en moyenne sur 7 jours glissants : Ravito garde les variations liées à l'entraînement (plus les jours durs, moins au repos) et les recale sur cette moyenne. Protéines et lipides sont fixes chaque jour (sans lipides renseignés : 22 à 28 % de l'énergie, au moins 0,8 g/kg) ; les glucides complètent et varient avec l'entraînement.
+Dans **Profil**, trois champs facultatifs : **calories de référence** (kcal/jour), **protéines** et **lipides** (g/jour). La référence s'applique chaque jour, repos compris ; les glucides complètent. Les jours de séances longues (≥ 90 min) ou intenses, Ravito ajoute des glucides : avant une séance ≥ 2 h (0,5 g/kg), en récupération (jusqu'à 0,8 g/kg), la veille d'une sortie longue (0,5 g/kg), plus les glucides pris pendant l'effort.
 
 ## Menus concrets
 Pour chaque repas, Ravito propose un menu avec des quantités (poids cuits) calculées pour atteindre les glucides et protéines visés, à partir d'une table d'aliments courants. Bouton « Autre idée » pour une variante. Les glucides pris pendant les séances (boisson, gels) sont déduits des repas. Avant une séance proche, la collation est digeste (peu de gras et de fibres). Valeurs nutritionnelles indicatives.
