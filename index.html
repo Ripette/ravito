@@ -138,6 +138,15 @@ footer{max-width:980px;margin:auto;padding:10px 16px 40px;color:var(--mut);font-
       <p class="note" id="icuMsg"></p>
     </div>
     <div class="sess" style="display:block">
+      <b>Garmin Connect</b> <span class="sm mut" id="gmStatus">activités réalisées, en direct</span>
+      <p class="sm mut" style="margin:4px 0 8px">Crée une clé API personnelle sur Garmin Connect (site web) → Paramètres → Clé API personnelle. Elle n'est affichée qu'une fois : copie-la ici. Elle reste dans ce navigateur. Importe tes activités des 3 derniers jours à chaque ouverture.</p>
+      <div class="grid g3">
+        <div style="grid-column:span 2"><label>Clé API personnelle Garmin</label><input id="gmKey" type="password" autocomplete="off"></div>
+        <div style="align-self:end"><button class="b" onclick="importGarmin(true)">Connecter Garmin</button></div>
+      </div>
+      <p class="note" id="gmMsg"></p>
+    </div>
+    <div class="sess" style="display:block">
       <b>Agenda d'entraînement (iCal)</b> <span class="sm mut" id="icsStatus">séances prévues · Garmin Connect, Nolio, Google Agenda…</span>
       <p class="sm mut" style="margin:4px 0 8px">Colle le lien d'abonnement de ton calendrier (il commence par <code>https://</code> ou <code>webcal://</code>, souvent avec « ics » ou « ical »). Sur Garmin Connect (site web) : Calendrier → engrenage ou « Synchroniser / S'abonner ». Ravito importe les séances des 10 prochains jours, devine le sport et l'intensité d'après le nom (corrige-les si besoin), et ignore celles déjà réalisées.</p>
       <div class="grid g3">
@@ -419,7 +428,7 @@ function addSession(){
   if(!s.date)return toast('Choisis une date');
   S.sessions.push(s);save();document.getElementById('sName').value='';renderSessions();renderToday();
 }
-function delSession(id){S.sessions=S.sessions.filter(s=>s.id!==id);if(S.ovr)delete S.ovr[id];if(/^(icu|ics|stv)/.test(id)){S.hide=S.hide||[];if(!S.hide.includes(id))S.hide.push(id);S.hide=S.hide.slice(-300)}save();renderSessions();renderToday()}
+function delSession(id){S.sessions=S.sessions.filter(s=>s.id!==id);if(S.ovr)delete S.ovr[id];if(/^(icu|ics|stv|gm)/.test(id)){S.hide=S.hide||[];if(!S.hide.includes(id))S.hide.push(id);S.hide=S.hide.slice(-300)}save();renderSessions();renderToday()}
 function v(id){return document.getElementById(id).value}
 function setv(id,x){document.getElementById(id).value=x}
 
@@ -520,6 +529,59 @@ async function importICS(manual){
   }catch(e){msg.textContent='Échec : '+e.message}
 }
 
+/* ---------- Garmin Connect ---------- */
+function gmSport(k){
+  k=(k||'').toLowerCase();
+  if(k.includes('trail'))return'trail';
+  if(k.includes('run'))return'run';
+  if(/cycl|bik|ride|spin/.test(k))return'bike';
+  if(k.includes('swim'))return'swim';
+  if(/strength|cardio|hiit|fitness/.test(k))return'strength';
+  if(k.includes('row'))return'row';
+  if(k.includes('ski'))return'ski';
+  if(/hik|walk/.test(k))return'hike';
+  if(/soccer|football|rugby|basket|hand|volley/.test(k))return'team';
+  return null;
+}
+function gmInt(a,sport,min){
+  const te=(a.te||'').toUpperCase();
+  const byTe=/RECOVERY/.test(te)?1:/BASE/.test(te)?2:/TEMPO|THRESHOLD/.test(te)?3:/VO2|ANAEROBIC|SPEED|SPRINT/.test(te)?4:null;
+  const byData=icuInt(null,min,a.hr,a.watts,sport,null,a.name);
+  const reps=/\d+\s*[x×]\s*\d/i.test(a.name||'');
+  // on garde le plus élevé entre l'effet d'entraînement Garmin et FC/puissance/nom
+  let i=byTe?Math.max(byTe,byData===2&&!a.hr&&!a.watts?1:byData):byData;
+  if(a.ate&&a.ate>=2.5)i=Math.max(i,4);
+  if(reps)i=Math.max(i,3);
+  return i;
+}
+function sameAct(a,b){return a.date===b.date&&a.sport===b.sport&&Math.abs(mins(a.time)-mins(b.time))<=20}
+async function importGarmin(manual){
+  const msg=document.getElementById('gmMsg');
+  if(manual){const k=v('gmKey').trim();if(!k)return msg.textContent='Colle d\'abord ta clé.';S.gm=k;save()}
+  if(!S.gm)return;
+  msg.textContent='Synchronisation Garmin…';
+  const t=iso(new Date()),from=addDays(t,-3);
+  try{
+    const r=await fetch('/api/garmin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:S.gm,from,to:addDays(t,1)})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error((d.error||'HTTP '+r.status)+(d.champs?' ['+d.champs.join(', ')+']':''));
+    S.sessions=S.sessions.filter(s=>s.src!=='Garmin'||s.date<from);
+    let n=0;
+    d.forEach(a=>{
+      const [date,tm]=String(a.start).split(/[ T]/);if(!date)return;
+      const sport=gmSport(a.type)||guessSport(a.name)||'other',dur=Math.max(5,Math.round(a.dur/60)),time=(tm||'12:00').slice(0,5);
+      const s={id:'gm'+a.id,date,time,sport,dur,int:gmInt(a,sport,dur),name:a.name,src:'Garmin',done:true};
+      // remplace la séance prévue du jour et un éventuel doublon venu d'Intervals.icu
+      S.sessions=S.sessions.filter(x=>!(x.date===date&&x.sport===sport&&(!x.done||(x.src!=='Garmin'&&sameAct(x,s)))));
+      S.sessions.push(s);n++;
+    });
+    applyOvr();save();renderSessions();renderToday();
+    document.getElementById('gmStatus').textContent='connecté ✓';
+    msg.textContent=`${n} activité(s) Garmin synchronisée(s) (3 derniers jours).`;
+    if(manual)toast('Garmin synchronisé ✓');
+  }catch(e){msg.textContent='Échec : '+e.message}
+}
+
 async function importICU(manual){
   const msg=document.getElementById('icuMsg');
   if(manual){const id=v('icuId').trim(),key=v('icuKey').trim();if(!id||!key)return msg.textContent='Renseigne l\'ID et la clé.';S.icu={id,key};save()}
@@ -535,6 +597,7 @@ async function importICU(manual){
       const [date,tm]=(a.start_date_local||'').split('T');if(!date)return;
       const sport=ICUMAP[a.type]||guessSport(a.name)||'other',dur=Math.max(5,Math.round((a.moving_time||a.elapsed_time||0)/60));
       const i=S.sessions.findIndex(s=>s.date===date&&s.sport===sport&&!s.done);if(i>=0)S.sessions.splice(i,1);
+      if(S.sessions.some(s=>s.src==='Garmin'&&sameAct(s,{date,sport,time:(tm||'12:00').slice(0,5)})))return;
       S.sessions.push({id:'icuA'+a.id,date,time:(tm||'12:00').slice(0,5),sport,dur,int:icuInt(a.icu_training_load,dur,a.average_heartrate,a.icu_weighted_avg_watts,sport,a.icu_intensity,a.name),name:a.name||'',src:'Intervals.icu',done:true});nA++;
     });
     (evs||[]).filter(e=>e.category==='WORKOUT').forEach(e=>{
@@ -680,6 +743,7 @@ document.getElementById('sSport').innerHTML=opts;document.getElementById('pSport
 setv('sDate',iso(new Date()));fillProfile();setv('sSport',P().sport);
 if(S.icu){setv('icuId',S.icu.id||'');setv('icuKey',S.icu.key||'')}
 if(S.ics)setv('icsUrl',S.ics);
+if(S.gm)setv('gmKey',S.gm);
 renderToday();renderSessions();renderRecipes();raceUI();
 {const h=location.hash.slice(1);if(['today','week','race','recipes','profile'].includes(h))go(h)}
 {const q=new URLSearchParams(location.search).get('strava');
@@ -687,7 +751,7 @@ renderToday();renderSessions();renderRecipes();raceUI();
    const M={ok:'Strava connecté ✓',refuse:'Connexion Strava annulée',etat:'Connexion Strava expirée, réessaie',echec:'Strava a refusé la connexion'};toast(M[q]||'Strava');}
  if(location.protocol.startsWith('http')){
    fetch('/api/strava/enabled').then(r=>r.json()).then(d=>{if(d.enabled){document.getElementById('stvCard').classList.remove('hidden');if(q==='ok'||S.stravaOn)syncStrava(false)}}).catch(()=>{});
-   importICU(false).then(()=>importICS(false));
+   importGarmin(false).then(()=>importICU(false)).then(()=>importICS(false));
  }}
 </script>
 </body>
