@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ravito · Nutrition calée sur ton entraînement</title>
+<style>
+:root{
+  --bg:#0f1115;--card:#181b22;--card2:#1f232c;--line:#2a2f3a;--txt:#e9ecf1;--mut:#9aa3b2;
+  --hi:#2bb3a3;--mid:#e0a43a;--lo:#7d8797;--acc:#6c8cff;--danger:#e5645a;
+  --r:14px;
+}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt)}
+header{padding:18px 16px 8px;max-width:980px;margin:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+header h1{font-size:22px;margin:0;letter-spacing:.3px}
+header h1 span{color:var(--hi)}
+header p{margin:0;color:var(--mut);font-size:13px}
+nav{position:sticky;top:0;z-index:5;background:rgba(15,17,21,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+nav .in{max-width:980px;margin:auto;display:flex;gap:4px;overflow-x:auto;padding:8px 12px}
+nav button{background:none;border:0;color:var(--mut);padding:8px 14px;border-radius:999px;font:inherit;cursor:pointer;white-space:nowrap}
+nav button.on{background:var(--card2);color:var(--txt)}
+main{max-width:980px;margin:auto;padding:16px}
+section{display:none}section.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:14px}
+.card h2{font-size:17px;margin:0 0 10px}.card h3{font-size:15px;margin:0 0 6px}
+.grid{display:grid;gap:12px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+label{display:block;font-size:13px;color:var(--mut);margin-bottom:4px}
+input,select{width:100%;background:var(--card2);border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:9px 10px;font:inherit}
+button.b{background:var(--acc);color:#fff;border:0;border-radius:10px;padding:9px 14px;font:inherit;cursor:pointer}
+button.g{background:var(--card2);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font:inherit;cursor:pointer}
+button.x{background:none;border:0;color:var(--mut);cursor:pointer;font-size:16px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.mut{color:var(--mut)}.sm{font-size:13px}
+.stat{background:var(--card2);border-radius:12px;padding:12px}
+.stat b{display:block;font-size:22px}.stat span{font-size:12px;color:var(--mut)}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
+.p-hi{background:rgba(43,179,163,.15);color:var(--hi)}
+.p-mid{background:rgba(224,164,58,.15);color:var(--mid)}
+.p-lo{background:rgba(125,135,151,.18);color:#b6beca}
+.meal{border-left:4px solid var(--lo);padding:10px 12px;background:var(--card2);border-radius:10px}
+.meal.hi{border-color:var(--hi)}.meal.mid{border-color:var(--mid)}
+.sess{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:8px 10px;background:var(--card2);border-radius:10px;margin-bottom:6px}
+.days{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
+.day{min-width:78px;text-align:center;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:8px 6px;cursor:pointer}
+.day.on{border-color:var(--acc)}
+.day small{display:block;color:var(--mut);font-size:11px}
+.bar{height:6px;border-radius:4px;background:var(--line);margin-top:6px;overflow:hidden}
+.bar i{display:block;height:100%}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left}
+.note{font-size:12px;color:var(--mut);margin-top:8px}
+.warn{background:rgba(229,100,90,.1);border:1px solid rgba(229,100,90,.35);border-radius:10px;padding:10px;font-size:13px}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.hidden{display:none}
+footer{max-width:980px;margin:auto;padding:10px 16px 40px;color:var(--mut);font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Ravi<span>to</span></h1>
+  <p>Mange selon l'effort qui arrive, pas selon des macros fixes. Gratuit, tes données restent sur ton appareil.</p>
+</header>
+<nav><div class="in">
+  <button data-t="today" class="on">Aujourd'hui</button>
+  <button data-t="week">Séances</button>
+  <button data-t="race">Plan de course</button>
+  <button data-t="recipes">Recettes</button>
+  <button data-t="profile">Profil</button>
+</div></nav>
+
+<main>
+<!-- AUJOURD'HUI -->
+<section id="today" class="on">
+  <div id="needProfile" class="warn hidden" style="margin-bottom:14px">Renseigne d'abord ton profil (poids, taille, âge) pour des chiffres justes. <button class="g" onclick="go('profile')">Aller au profil</button></div>
+  <div class="card">
+    <div class="days" id="dayStrip"></div>
+  </div>
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <h2 id="dayTitle" style="margin:0"></h2>
+      <span id="dayPill"></span>
+    </div>
+    <div class="grid g4" style="margin-top:12px" id="dayStats"></div>
+    <p class="note" id="dayWhy"></p>
+  </div>
+  <div class="card">
+    <h2>Tes repas du jour</h2>
+    <div class="legend">
+      <span class="pill p-hi">● Charge haute : glucides en avant</span>
+      <span class="pill p-mid">● Charge modérée : équilibré</span>
+      <span class="pill p-lo">● Charge basse : légumes et protéines</span>
+    </div>
+    <div class="grid g2" id="meals"></div>
+  </div>
+  <div class="card" id="duringCard">
+    <h2>Pendant et après les séances</h2>
+    <div id="during"></div>
+  </div>
+</section>
+
+<!-- SÉANCES -->
+<section id="week">
+  <div class="card">
+    <h2>Ajouter une séance</h2>
+    <div class="grid g4">
+      <div><label>Date</label><input type="date" id="sDate"></div>
+      <div><label>Heure de début</label><input type="time" id="sTime" value="18:00"></div>
+      <div><label>Sport</label><select id="sSport"></select></div>
+      <div><label>Durée (min)</label><input type="number" id="sDur" value="60" min="5" step="5"></div>
+      <div><label>Intensité</label><select id="sInt">
+        <option value="1">Récup / très facile</option>
+        <option value="2" selected>Endurance</option>
+        <option value="3">Tempo / seuil</option>
+        <option value="4">Fractionné / compétition</option>
+      </select></div>
+      <div><label>Nom (facultatif)</label><input id="sName" placeholder="ex. Sortie longue"></div>
+    </div>
+    <div class="row" style="margin-top:12px"><button class="b" onclick="addSession()">Ajouter</button></div>
+  </div>
+  <div class="card">
+    <h2>Semaine en cours et à venir</h2>
+    <div id="sessList"></div>
+  </div>
+  <div class="card">
+    <h2>Connecteurs</h2>
+    <div class="sess" style="display:block">
+      <div class="row" style="justify-content:space-between">
+        <div><b>Strava</b> <span class="sm mut" id="stvStatus">non connecté</span></div>
+        <div class="row">
+          <button class="b" id="stvConnect" onclick="location.href='/api/strava/login'" style="background:#fc5200">Connecter Strava</button>
+          <button class="g hidden" id="stvSync" onclick="syncStrava(true)">Synchroniser</button>
+          <button class="g hidden" id="stvOut" onclick="logoutStrava()">Déconnecter</button>
+        </div>
+      </div>
+      <p class="sm mut" style="margin:6px 0 0">Importe tes activités réalisées des 3 derniers jours (Garmin, Coros, Wahoo, Zwift… s'ils sont reliés à Strava). Elles remplacent la séance prévue du même jour et du même sport, et recalculent tes repas de récupération.</p>
+    </div>
+    <div class="sess" style="display:block">
+      <b>Intervals.icu</b> <span class="sm mut">séances planifiées des 7 prochains jours</span>
+      <p class="sm mut" style="margin:4px 0 8px">Gratuit. Reçoit les séances de Garmin Connect, TrainingPeaks et d'autres calendriers. Clé dans Intervals.icu → Settings → Developer Settings. Elle reste dans ce navigateur.</p>
+      <div class="grid g3">
+        <div><label>ID athlète (ex. i12345)</label><input id="icuId"></div>
+        <div><label>Clé API</label><input id="icuKey" type="password"></div>
+        <div style="align-self:end"><button class="b" onclick="importICU()">Importer</button></div>
+      </div>
+      <p class="note" id="icuMsg"></p>
+    </div>
+    <div class="sess" style="display:block">
+      <b>Garmin · Nolio</b> <span class="pill p-lo">bientôt</span>
+      <p class="sm mut" style="margin:4px 0 0">Leurs API sont réservées aux partenaires validés. En attendant : Garmin passe par Strava ou Intervals.icu automatiquement ; pour Nolio, ajoute tes séances prévues à la main ou via Intervals.icu.</p>
+    </div>
+  </div>
+</section>
+
+<!-- PLAN DE COURSE -->
+<section id="race">
+  <div class="card">
+    <h2>Plan de ravitaillement de course</h2>
+    <div class="grid g4">
+      <div><label>Épreuve</label><select id="rType" onchange="raceUI()">
+        <option value="run">Course à pied (route)</option>
+        <option value="trail">Trail / ultra</option>
+        <option value="bike">Vélo</option>
+        <option value="tri">Triathlon</option>
+        <option value="other">Autre endurance</option>
+      </select></div>
+      <div id="rDurWrap"><label>Durée prévue (h:min)</label><input id="rDur" value="3:30"></div>
+      <div class="rTri hidden"><label>Natation (h:min)</label><input id="rSwim" value="0:35"></div>
+      <div class="rTri hidden"><label>Vélo (h:min)</label><input id="rBike" value="2:40"></div>
+      <div class="rTri hidden"><label>Course (h:min)</label><input id="rRun" value="1:45"></div>
+      <div><label>Intensité</label><select id="rInt">
+        <option value="2">Finir confortablement</option>
+        <option value="3" selected>Objectif chrono</option>
+        <option value="4">À bloc</option>
+      </select></div>
+      <div><label>Température (°C)</label><input type="number" id="rTemp" value="18"></div>
+      <div><label>Humidité</label><select id="rHum"><option value="0">Sec / normal</option><option value="1">Humide</option></select></div>
+      <div><label>Tu transpires</label><select id="rSweat"><option value="0">Peu</option><option value="1" selected>Normalement</option><option value="2">Beaucoup</option></select></div>
+      <div><label>Traces de sel sur tes vêtements ?</label><select id="rSalt"><option value="0">Non</option><option value="1">Oui</option></select></div>
+      <div><label>Estomac entraîné aux glucides ?</label><select id="rGut"><option value="0">Pas vraiment</option><option value="1">Oui, je m'entraîne à manger en effort</option></select></div>
+      <div><label>Gel utilisé (g de glucides)</label><input type="number" id="rGel" value="25"></div>
+      <div><label>Boisson d'effort (g de glucides / 500 ml)</label><input type="number" id="rMix" value="30"></div>
+    </div>
+    <div class="row" style="margin-top:12px"><button class="b" onclick="racePlan()">Calculer mon plan</button></div>
+  </div>
+  <div id="raceOut"></div>
+</section>
+
+<!-- RECETTES -->
+<section id="recipes">
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <h2 style="margin:0">Recettes</h2>
+      <select id="recFilter" style="width:auto" onchange="renderRecipes()">
+        <option value="all">Toutes</option><option value="hi">Charge haute</option><option value="mid">Charge modérée</option><option value="lo">Charge basse</option>
+      </select>
+    </div>
+  </div>
+  <div class="grid g2" id="recList"></div>
+</section>
+
+<!-- PROFIL -->
+<section id="profile">
+  <div class="card">
+    <h2>Ton profil</h2>
+    <div class="grid g4">
+      <div><label>Prénom</label><input id="pName"></div>
+      <div><label>Sexe</label><select id="pSex"><option value="m">Homme</option><option value="f">Femme</option></select></div>
+      <div><label>Âge</label><input type="number" id="pAge" value="30"></div>
+      <div><label>Poids (kg)</label><input type="number" id="pW" value="70" step="0.1"></div>
+      <div><label>Taille (cm)</label><input type="number" id="pH" value="175"></div>
+      <div><label>Activité hors sport</label><select id="pAct"><option value="1.25">Assis toute la journée</option><option value="1.4" selected>Un peu actif</option><option value="1.55">Métier physique</option></select></div>
+      <div><label>Objectif</label><select id="pGoal"><option value="perf">Performance</option><option value="maint">Maintien</option><option value="loss">Perte de poids douce</option></select></div>
+      <div><label>Sport principal</label><select id="pSport"></select></div>
+      <div><label>FC max (facultatif)</label><input type="number" id="pHR" placeholder="ex. 188"></div>
+      <div><label>FTP vélo en watts (facultatif)</label><input type="number" id="pFTP" placeholder="ex. 250"></div>
+    </div>
+    <h3 style="margin-top:16px">Horaires des repas</h3>
+    <div class="grid g4">
+      <div><label>Petit-déjeuner</label><input type="time" id="m0" value="07:30"></div>
+      <div><label>Déjeuner</label><input type="time" id="m1" value="12:30"></div>
+      <div><label>Collation</label><input type="time" id="m2" value="16:30"></div>
+      <div><label>Dîner</label><input type="time" id="m3" value="19:45"></div>
+    </div>
+    <div class="row" style="margin-top:12px"><button class="b" onclick="saveProfile()">Enregistrer</button><span id="pMsg" class="sm mut"></span></div>
+  </div>
+  <div class="card">
+    <h2>Sauvegarde</h2>
+    <p class="sm mut">Tout est stocké dans ce navigateur. Exporte un fichier pour changer d'appareil.</p>
+    <div class="row">
+      <button class="g" onclick="exportData()">Exporter</button>
+      <label class="g" style="margin:0;color:var(--txt);cursor:pointer;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--card2)">Importer<input type="file" accept=".json" class="hidden" onchange="importData(this)"></label>
+      <button class="g" onclick="wipe(this)">Tout effacer</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Comment ça marche</h2>
+    <p class="sm">Ravito applique les recommandations publiques de nutrition du sport (consensus ACSM / ISSN / IOC) : on ajuste les glucides à la charge d'entraînement plutôt que de manger pareil tous les jours.</p>
+    <ul class="sm">
+      <li><b>Glucides du jour</b> : de ~3 g/kg (repos) à ~10 g/kg (très grosse journée), selon la durée et l'intensité des séances.</li>
+      <li><b>Code de chaque repas</b> : on regarde les séances dans les 4 h qui suivent (préparer), celles terminées dans les 3 h précédentes (récupérer) et, pour le dîner, la séance du lendemain matin.</li>
+      <li><b>Protéines</b> : 1,6 à 2,0 g/kg réparties sur la journée. <b>Lipides</b> : le reste de l'énergie, au moins 0,8 g/kg.</li>
+      <li><b>Énergie</b> : métabolisme de base (Mifflin-St Jeor) × activité quotidienne + dépense des séances (équivalents métaboliques).</li>
+    </ul>
+    <p class="note">Ce sont des estimations pour adultes en bonne santé, pas un avis médical. En cas de pathologie, grossesse, trouble alimentaire ou objectif de poids important, vois un·e diététicien·ne du sport.</p>
+  </div>
+</section>
+</main>
+<div id="toast" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#2a2f3a;color:#fff;padding:10px 16px;border-radius:10px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9"></div>
+<footer>Ravito · outil personnel gratuit · données stockées localement</footer>
+
+<script>
+const KEY='ravito.v1';
+const SPORTS={
+  run:{n:'Course à pied',met:[7,9.5,11.5,13.5]},
+  bike:{n:'Vélo',met:[5,7.5,10,12.5]},
+  swim:{n:'Natation',met:[5,7,9.5,11]},
+  trail:{n:'Trail',met:[7.5,10,12,13.5]},
+  strength:{n:'Musculation',met:[3.5,5,6,6.5]},
+  team:{n:'Sport collectif',met:[5,7,8.5,10]},
+  row:{n:'Aviron / rameur',met:[4.5,7,9,12]},
+  ski:{n:'Ski de fond',met:[6,9,12,14]},
+  hike:{n:'Marche / rando',met:[3.5,5,6.5,7.5]},
+  other:{n:'Autre',met:[4.5,7,9,11]},
+};
+const IFACT=[0,0.5,1,1.6,2.1]; // poids de l'intensité dans la charge
+const INAME=['','Récup','Endurance','Tempo/seuil','Fractionné'];
+const MEALS=['Petit-déjeuner','Déjeuner','Collation','Dîner'];
+const CODE={hi:{t:'Charge haute',c:'p-hi'},mid:{t:'Charge modérée',c:'p-mid'},lo:{t:'Charge basse',c:'p-lo'}};
+
+let S=load();
+let selDay=iso(new Date());
+
+function load(){try{return JSON.parse(localStorage.getItem(KEY))||{profile:null,sessions:[],icu:{}}}catch(e){return{profile:null,sessions:[],icu:{}}}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function toast(m){let t=document.getElementById('toast');t.textContent=m;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,2500)}
+function wipe(b){if(b.dataset.ok){try{localStorage.removeItem(KEY)}catch(e){}location.reload()}else{b.dataset.ok=1;b.textContent='Confirmer : tout effacer';setTimeout(()=>{delete b.dataset.ok;b.textContent='Tout effacer'},4000)}}
+function iso(d){const z=new Date(d.getTime()-d.getTimezoneOffset()*6e4);return z.toISOString().slice(0,10)}
+function addDays(s,n){const d=new Date(s+'T12:00');d.setDate(d.getDate()+n);return iso(d)}
+function mins(t){const[a,b]=(t||'0:0').split(':').map(Number);return a*60+(b||0)}
+function hm(m){m=Math.round(m);return Math.floor(m/60)+'h'+String(m%60).padStart(2,'0')}
+function r5(x){return Math.round(x/5)*5}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function P(){return S.profile||{sex:'m',age:30,w:70,h:175,act:1.4,goal:'perf',sport:'run',meals:['07:30','12:30','16:30','19:45']}}
+
+/* ---------- moteur ---------- */
+function load_(s){return s.dur/60*IFACT[s.int]} // charge d'une séance
+function kcal(s){const m=(SPORTS[s.sport]||SPORTS.other).met[s.int-1];return m*P().w*s.dur/60}
+function daySess(d){return S.sessions.filter(s=>s.date===d).sort((a,b)=>mins(a.time)-mins(b.time))}
+function dayLoad(d){return daySess(d).reduce((a,s)=>a+load_(s),0)}
+function carbPerKg(L){return L===0?3:L<0.75?4:L<1.5?5.5:L<2.5?7:L<4?8.5:10}
+function dayLevel(L){return L<0.75?'lo':L<1.8?'mid':'hi'}
+function bmr(p){return 10*p.w+6.25*p.h-5*p.age+(p.sex==='m'?5:-161)}
+
+function dayPlan(d){
+  const p=P(),ss=daySess(d),L=dayLoad(d),tomorrowL=dayLoad(addDays(d,1));
+  let cpk=carbPerKg(L);
+  // anticipation 72 h : grosse journée demain -> on monte un peu aujourd'hui
+  if(tomorrowL>=2.5&&cpk<7)cpk+=1;
+  if(p.goal==='loss'&&L<1.5)cpk=Math.max(2.5,cpk-0.5);
+  const exK=ss.reduce((a,s)=>a+kcal(s),0);
+  let energy=bmr(p)*p.act+exK;
+  if(p.goal==='loss')energy*=L<1.5?0.85:0.95;
+  const carbs=cpk*p.w, prot=(p.goal==='loss'?2.0:1.8)*p.w;
+  let fat=(energy-carbs*4-prot*4)/9; fat=Math.max(fat,0.8*p.w);
+  energy=carbs*4+prot*4+fat*9;
+  // repas
+  const mt=(p.meals||['07:30','12:30','16:30','19:45']).map(mins);
+  const tomorrow=daySess(addDays(d,1));
+  const meals=mt.map((t,i)=>{
+    let sc=0,why=[];
+    ss.forEach(s=>{const st=mins(s.time),en=st+s.dur,l=load_(s);
+      if(st>t&&st-t<=240){sc+=l;why.push('avant '+(s.name||SPORTS[s.sport].n.toLowerCase())+' à '+s.time)}
+      else if(st>t&&st-t<=360){sc+=l*0.4}
+      else if(st>t&&st-t<=600){sc+=l*0.2}
+      if(en<=t&&t-en<=180){sc+=l*0.8;why.push('récupération de '+(s.name||SPORTS[s.sport].n.toLowerCase()))}
+      if(st<=t&&en>t){sc+=l*0.5}
+    });
+    if(i===mt.length-1){tomorrow.forEach(s=>{const l=load_(s);sc+=mins(s.time)<720?l*0.7:l*0.3;if(l>=1)why.push('séance demain '+(mins(s.time)<720?'matin':'')+' ('+INAME[s.int].toLowerCase()+', '+hm(s.dur)+')')})}
+    const code=sc>=1.1?'hi':sc>=0.4?'mid':'lo';
+    return{name:MEALS[i],time:p.meals?p.meals[i]:'',code,why};
+  });
+  const wt={hi:3,mid:2,lo:1};
+  let tot=meals.reduce((a,m)=>a+wt[m.code]*(m.name==='Collation'?0.5:1),0);
+  meals.forEach(m=>{const f=(m.name==='Collation'?0.5:1);m.c=carbs*wt[m.code]*f/tot;m.p=prot*f/3.5;m.f=fat*f/3.5*(m.code==='hi'?0.8:1.1)});
+  return{L,cpk,carbs,prot,fat,energy,exK,meals,ss,level:dayLevel(L)};
+}
+
+const MEALTIPS={
+  hi:['Base généreuse de féculents : pâtes, riz, pommes de terre, pain, flocons d\'avoine','Fruits, jus ou miel en plus si besoin','Peu de fibres et de gras si la séance est proche (moins de 2 h)'],
+  mid:['Moitié d\'assiette féculents, un quart protéines, un quart légumes','Céréales complètes OK si la séance est loin'],
+  lo:['Assiette surtout légumes + protéines (œufs, poisson, viande, tofu, légumineuses)','Une petite portion de féculents ou de fruit','Bonnes graisses : huile d\'olive, noix, avocat'],
+};
+const EX={hi:['70 g d\'avoine + banane + miel','100 g de riz cuit ≈ 28 g','1 grosse banane ≈ 27 g'],mid:['150 g de pâtes cuites ≈ 45 g','1 tranche de pain ≈ 15 g'],lo:['200 g de lentilles cuites ≈ 40 g','1 pomme ≈ 20 g']};
+
+function during(s){
+  const p=P(),h=s.dur/60;let cph,txt;
+  if(s.dur<60){cph=0;txt='Pas besoin de manger pendant. De l\'eau suffit.'}
+  else if(s.dur<=90){cph=s.int>=3?30:0;txt=cph?'Environ 30 g de glucides/h (boisson ou un gel), ou simplement un rinçage de bouche avec boisson sucrée.':'De l\'eau suffit, éventuellement une boisson d\'effort.'}
+  else if(s.dur<=150){cph=s.int>=3?60:45;txt=`${cph} g de glucides/h, à commencer dès 20-30 min.`}
+  else{cph=s.int>=3?80:60;if(s.sport==='run'||s.sport==='trail')cph=Math.min(cph,70);txt=`${cph} g de glucides/h (mélange glucose + fructose au-delà de 60 g/h). Commence tôt, en petites prises régulières.`}
+  const rec=s.int>=3||s.dur>=90?`Dans l'heure qui suit : ~${r5(p.w*1)} g de glucides + ~${r5(p.w*0.3)} g de protéines.`:'Récupération : ton prochain repas normal suffit.';
+  return{cph,txt,rec,total:Math.round(cph*h)};
+}
+
+/* ---------- rendu ---------- */
+function renderStrip(){
+  const t=iso(new Date());let h='';
+  for(let i=-1;i<7;i++){const d=addDays(t,i),L=dayLoad(d),lv=dayLevel(L),dt=new Date(d+'T12:00');
+    h+=`<div class="day ${d===selDay?'on':''}" onclick="selDay='${d}';renderToday()">
+      <small>${dt.toLocaleDateString('fr-FR',{weekday:'short'})}</small><b>${dt.getDate()}</b>
+      <div class="bar"><i style="width:${Math.min(100,L/4*100)}%;background:var(--${lv})"></i></div>
+      <small>${daySess(d).length?daySess(d).length+' séance'+(daySess(d).length>1?'s':''):'repos'}</small></div>`}
+  document.getElementById('dayStrip').innerHTML=h;
+}
+function renderToday(){
+  document.getElementById('needProfile').classList.toggle('hidden',!!S.profile);
+  renderStrip();
+  const D=dayPlan(selDay),dt=new Date(selDay+'T12:00');
+  document.getElementById('dayTitle').textContent=(selDay===iso(new Date())?'Aujourd\'hui · ':'')+dt.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('dayPill').innerHTML=`<span class="pill ${CODE[D.level].c}">Journée ${CODE[D.level].t.toLowerCase().replace('charge ','')}</span>`;
+  document.getElementById('dayStats').innerHTML=
+    `<div class="stat"><b>${r5(D.energy)}</b><span>kcal estimées</span></div>
+     <div class="stat"><b>${r5(D.carbs)} g</b><span>glucides (${D.cpk.toFixed(1)} g/kg)</span></div>
+     <div class="stat"><b>${r5(D.prot)} g</b><span>protéines</span></div>
+     <div class="stat"><b>${r5(D.fat)} g</b><span>lipides</span></div>`;
+  document.getElementById('dayWhy').textContent=D.ss.length?`${D.ss.length} séance(s), ${hm(D.ss.reduce((a,s)=>a+s.dur,0))} au total, ~${r5(D.exK)} kcal dépensées à l'entraînement.`:'Jour sans séance : on mange moins de glucides, mais on garde les protéines.';
+  document.getElementById('meals').innerHTML=D.meals.map(m=>`
+    <div class="meal ${m.code}">
+      <div class="row" style="justify-content:space-between"><b>${m.name} <span class="mut sm">${esc(m.time)}</span></b><span class="pill ${CODE[m.code].c}">${CODE[m.code].t}</span></div>
+      <div class="sm" style="margin:4px 0">≈ <b>${r5(m.c)} g</b> glucides · ${r5(m.p)} g protéines · ${r5(m.f)} g lipides</div>
+      ${m.why.length?`<div class="sm mut">Pourquoi : ${esc(m.why.join(', '))}</div>`:''}
+      <ul class="sm" style="margin:6px 0 0;padding-left:18px">${MEALTIPS[m.code].map(x=>`<li>${x}</li>`).join('')}</ul>
+      <div class="note">Repères : ${EX[m.code].join(' · ')}</div>
+    </div>`).join('');
+  const dc=document.getElementById('during');
+  dc.innerHTML=D.ss.length?D.ss.map(s=>{const x=during(s);return`<div class="sess" style="display:block">
+    <b>${esc(s.time)} · ${esc(s.name||SPORTS[s.sport].n)}</b> <span class="mut sm">${hm(s.dur)} · ${INAME[s.int]}</span>
+    <div class="sm" style="margin-top:4px">${x.txt}${x.total?` <b>Total ≈ ${x.total} g</b>.`:''}</div>
+    <div class="sm mut">${x.rec}</div></div>`}).join(''):'<p class="mut sm">Aucune séance ce jour-là. Ajoute-les dans l\'onglet Séances.</p>';
+}
+function renderSessions(){
+  const t=iso(new Date()),list=S.sessions.filter(s=>s.date>=addDays(t,-2)).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  document.getElementById('sessList').innerHTML=list.length?list.map(s=>`<div class="sess">
+    <div><b>${new Date(s.date+'T12:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})} · ${esc(s.time)}</b> — ${esc(s.name||SPORTS[s.sport].n)}
+    <div class="sm mut">${SPORTS[s.sport].n} · ${hm(s.dur)} · ${INAME[s.int]}${s.done?' · ✓ réalisée':''}${s.src?' · '+esc(s.src):''}</div></div>
+    <button class="x" title="Supprimer" onclick="delSession('${s.id}')">✕</button></div>`).join(''):'<p class="mut sm">Aucune séance. Ajoute ta première ci-dessus.</p>';
+}
+function addSession(){
+  const s={id:Math.random().toString(36).slice(2),date:v('sDate'),time:v('sTime')||'18:00',sport:v('sSport'),dur:+v('sDur')||60,int:+v('sInt'),name:v('sName').trim()};
+  if(!s.date)return toast('Choisis une date');
+  S.sessions.push(s);save();document.getElementById('sName').value='';renderSessions();renderToday();
+}
+function delSession(id){S.sessions=S.sessions.filter(s=>s.id!==id);save();renderSessions();renderToday()}
+function v(id){return document.getElementById(id).value}
+function setv(id,x){document.getElementById(id).value=x}
+
+/* ---------- profil ---------- */
+function fillProfile(){const p=P();setv('pHR',p.hrmax||'');setv('pFTP',p.ftp||'');setv('pName',p.name||'');setv('pSex',p.sex);setv('pAge',p.age);setv('pW',p.w);setv('pH',p.h);setv('pAct',p.act);setv('pGoal',p.goal);setv('pSport',p.sport);(p.meals||[]).forEach((m,i)=>setv('m'+i,m))}
+function saveProfile(){
+  S.profile={hrmax:+v('pHR')||null,ftp:+v('pFTP')||null,name:v('pName'),sex:v('pSex'),age:+v('pAge'),w:+v('pW'),h:+v('pH'),act:+v('pAct'),goal:v('pGoal'),sport:v('pSport'),meals:[0,1,2,3].map(i=>v('m'+i))};
+  save();setv('sSport',S.profile.sport);document.getElementById('pMsg').textContent='Enregistré ✓';setTimeout(()=>document.getElementById('pMsg').textContent='',2000);renderToday();
+}
+function exportData(){const a=document.createElement('a');const d={...S,icu:{id:S.icu?.id||''}};a.href=URL.createObjectURL(new Blob([JSON.stringify(d,null,2)],{type:'application/json'}));a.download='ravito-sauvegarde.json';a.click()}
+function importData(inp){const f=inp.files[0];if(!f)return;f.text().then(t=>{try{const d=JSON.parse(t);if(!Array.isArray(d.sessions))throw 0;S={profile:d.profile||null,sessions:d.sessions,icu:d.icu||{}};save();location.reload()}catch(e){toast('Fichier invalide')}})}
+
+/* ---------- Intervals.icu ---------- */
+async function importICU(){
+  const id=v('icuId').trim(),key=v('icuKey').trim(),msg=document.getElementById('icuMsg');
+  if(!id||!key)return msg.textContent='Renseigne l\'ID et la clé.';
+  S.icu={id,key};save();msg.textContent='Import en cours…';
+  const t=iso(new Date()),from=addDays(t,-1),to=addDays(t,7);
+  const map={Run:'run',VirtualRun:'run',TrailRun:'trail',Ride:'bike',VirtualRide:'bike',GravelRide:'bike',MountainBikeRide:'bike',Swim:'swim',OpenWaterSwim:'swim',WeightTraining:'strength',Rowing:'row',NordicSki:'ski',Hike:'hike',Walk:'hike'};
+  try{
+    const r=await fetch('/api/icu',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,key,oldest:from,newest:to})});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const ev=await r.json();let n=0;
+    S.sessions=S.sessions.filter(s=>s.src!=='Intervals.icu'||s.date<from);
+    ev.filter(e=>e.category==='WORKOUT').forEach(e=>{
+      const dur=Math.round((e.moving_time||e.time_target||3600)/60),load=e.icu_training_load||0,lph=load/(dur/60);
+      const int=!load?2:lph<40?1:lph<65?2:lph<85?3:4;
+      const [d,tm]=(e.start_date_local||'').split('T');
+      S.sessions.push({id:'icu'+e.id,date:d,time:(tm||'18:00').slice(0,5)==='00:00'?'18:00':(tm||'18:00').slice(0,5),sport:map[e.type]||'other',dur,int,name:e.name||'',src:'Intervals.icu'});n++});
+    save();renderSessions();renderToday();msg.textContent=`${n} séance(s) planifiée(s) importée(s).`;
+  }catch(e){msg.textContent='Échec de l\'import ('+e.message+'). Vérifie l\'ID et la clé. '}
+}
+
+/* ---------- Strava ---------- */
+const STV={Run:'run',VirtualRun:'run',TrailRun:'trail',Ride:'bike',VirtualRide:'bike',GravelRide:'bike',MountainBikeRide:'bike',EBikeRide:'bike',Swim:'swim',WeightTraining:'strength',Crossfit:'strength',Workout:'other',Rowing:'row',NordicSki:'ski',BackcountrySki:'ski',Hike:'hike',Walk:'hike',Soccer:'team'};
+function stvInt(a,sport){
+  const p=P();
+  if(sport==='bike'&&a.watts&&p.ftp){const f=a.watts/p.ftp;return f<0.6?1:f<0.78?2:f<0.9?3:4}
+  if(a.hr&&p.hrmax){const f=a.hr/p.hrmax;return f<0.68?1:f<0.79?2:f<0.87?3:4}
+  return 2;
+}
+function stvUI(on,name){
+  document.getElementById('stvStatus').textContent=on?'connecté'+(name?' · '+name:''):'non connecté';
+  document.getElementById('stvConnect').classList.toggle('hidden',on);
+  document.getElementById('stvSync').classList.toggle('hidden',!on);
+  document.getElementById('stvOut').classList.toggle('hidden',!on);
+}
+async function syncStrava(manual){
+  try{
+    const r=await fetch('/api/strava/activities?days=3',{credentials:'same-origin'});
+    if(r.status===401){stvUI(false);S.stravaOn=false;save();if(manual)toast('Connecte Strava d\'abord');return}
+    const d=await r.json();if(!r.ok)throw new Error(d.error||r.status);
+    stvUI(true,d.athlete);S.stravaOn=true;let n=0;
+    d.activities.forEach(a=>{
+      const id='stv'+a.id;if(S.sessions.some(s=>s.id===id))return;
+      const [date,tm]=a.start.replace('Z','').split('T'),sport=STV[a.type]||'other';
+      // remplace la séance prévue du même jour et du même sport
+      const i=S.sessions.findIndex(s=>s.date===date&&s.sport===sport&&!s.done);
+      if(i>=0)S.sessions.splice(i,1);
+      S.sessions.push({id,date,time:tm.slice(0,5),sport,dur:Math.max(5,Math.round(a.moving/60)),int:stvInt(a,sport),name:a.name,src:'Strava',done:true});n++;
+    });
+    save();renderSessions();renderToday();if(manual||n)toast(n?`${n} activité(s) Strava importée(s)`:'Déjà à jour');
+  }catch(e){if(manual)toast('Échec Strava : '+e.message)}
+}
+async function logoutStrava(){await fetch('/api/strava/logout',{method:'POST'}).catch(()=>{});S.stravaOn=false;save();stvUI(false);toast('Strava déconnecté')}
+
+/* ---------- plan de course ---------- */
+function hmToMin(s){const[a,b]=String(s).split(/[:h]/).map(Number);return(a||0)*60+(b||0)}
+function raceUI(){const tri=v('rType')==='tri';document.querySelectorAll('.rTri').forEach(e=>e.classList.toggle('hidden',!tri));document.getElementById('rDurWrap').classList.toggle('hidden',tri)}
+function racePlan(){
+  const p=P(),type=v('rType'),int=+v('rInt'),T=+v('rTemp'),hum=+v('rHum'),sw=+v('rSweat'),salt=+v('rSalt'),gut=+v('rGut'),gel=+v('rGel')||25,mix=+v('rMix')||30;
+  let legs;
+  if(type==='tri')legs=[{k:'swim',n:'Natation',m:hmToMin(v('rSwim'))},{k:'bike',n:'Vélo',m:hmToMin(v('rBike'))},{k:'run',n:'Course',m:hmToMin(v('rRun'))}];
+  else legs=[{k:type==='other'?'other':type,n:{run:'Course',trail:'Trail',bike:'Vélo',other:'Effort'}[type],m:hmToMin(v('rDur'))}];
+  const totMin=legs.reduce((a,l)=>a+l.m,0);
+  if(!totMin)return toast('Indique une durée');
+  const heat=Math.max(0,T-20)/5*0.12+(hum?0.1:0)-(T<10?0.15:0);
+  const sweatL=Math.max(0.3,[0.6,0.9,1.3][sw]+heat+(int-3)*0.1);
+  const naConc=(salt?900:550)+(T>25?100:0); // mg/L
+  let rows=[],totC=0,totF=0,totNa=0,energy=0;
+  legs.forEach(l=>{
+    const h=l.m/60,met=(SPORTS[l.k]||SPORTS.other).met[Math.min(3,int)];energy+=met*p.w*h;
+    let c;
+    if(l.k==='swim'){c=0}
+    else if(totMin<75)c=totMin<45?0:30;
+    else if(totMin<=150)c=gut?60:45;
+    else c=gut?90:60;
+    if((l.k==='run'||l.k==='trail')&&c>60)c=gut?75:60;
+    if(l.k==='bike'&&totMin>150&&gut)c=95;
+    const fluid=l.k==='swim'?0:Math.min(1000,r5(sweatL*0.7*1000/10)*10);
+    const na=Math.round(fluid/1000*naConc/10)*10;
+    rows.push({...l,c,fluid,na,h});totC+=c*h;totF+=fluid*h;totNa+=na*h;
+  });
+  const loss=sweatL*totMin/60-totF/1000;
+  const gels=(totC*0.5)/gel,bottles=totF/500,mixCarb=Math.min(totC*0.5,bottles*mix);
+  const gelsAdj=Math.ceil((totC-mixCarb)/gel);
+  const long=totMin>=90;
+  const lossPct=loss/p.w*100;
+  document.getElementById('raceOut').innerHTML=`
+  <div class="card"><h2>Ton plan</h2>
+    <div class="grid g4">
+      <div class="stat"><b>${r5(energy)}</b><span>kcal dépensées (estimation)</span></div>
+      <div class="stat"><b>${r5(totC)} g</b><span>glucides pendant l'épreuve</span></div>
+      <div class="stat"><b>${(totF/1000).toFixed(1)} L</b><span>à boire</span></div>
+      <div class="stat"><b>${r5(totNa)} mg</b><span>sodium</span></div>
+    </div>
+    <table style="margin-top:12px"><tr><th>Partie</th><th>Durée</th><th>Glucides / h</th><th>Boisson / h</th><th>Sodium / h</th></tr>
+    ${rows.map(r=>`<tr><td>${r.n}</td><td>${hm(r.m)}</td><td>${r.c?r.c+' g':'—'}</td><td>${r.fluid?r.fluid+' ml':'—'}</td><td>${r.na?r.na+' mg':'—'}</td></tr>`).join('')}
+    </table>
+    <p class="note">Sudation estimée ≈ ${sweatL.toFixed(2)} L/h. En buvant ce plan, tu perdras ≈ ${Math.max(0,loss).toFixed(1)} L (${Math.max(0,lossPct).toFixed(1)} % du poids)${lossPct>2?' : au-dessus de 2 %, bois un peu plus si ton estomac le tolère':' : c\'est raisonnable'}.</p>
+  </div>
+  <div class="card"><h2>Quoi emporter</h2>
+    <ul>
+      ${totC?`<li><b>${Math.ceil(bottles)}</b> bidons/flasques de 500 ml de boisson d'effort (≈ ${r5(mixCarb)} g de glucides) — ou à récupérer aux ravitos.</li>
+      <li><b>${gelsAdj}</b> gels de ${gel} g (ou équivalent : barres, pâtes de fruits, compote) pour compléter.</li>
+      <li>Une prise toutes les 20-30 min plutôt que de gros apports espacés.</li>`:'<li>Pas besoin de glucides pendant une épreuve aussi courte : bois selon ta soif.</li>'}
+      ${totNa>300?`<li>Sodium : si ta boisson en contient peu, ajoute ${Math.ceil(totNa/250)} capsules/pastilles de sel (~250 mg chacune) réparties.</li>`:''}
+      ${!gut&&totC/(totMin/60)>=60?'<li>⚠️ Entraîne ton estomac : teste ce plan sur 3-4 sorties longues avant le jour J.</li>':''}
+    </ul></div>
+  <div class="card"><h2>Avant</h2><ul>
+    ${totMin>=90?`<li><b>36-48 h avant</b> : charge en glucides, ≈ ${r5(p.w*(totMin>=150?10:8))} g/jour (${totMin>=150?10:8} g/kg). Diminue fibres et gras pour digérer facilement.</li>`:'<li>Pas besoin de surcharge glucidique : mange normalement la veille.</li>'}
+    <li><b>2-4 h avant</b> : repas de ≈ ${r5(p.w*(long?2:1))} g de glucides (pain blanc, confiture, riz, banane…), peu de fibres, déjà testé à l'entraînement.</li>
+    <li><b>15 min avant</b> : un gel ou quelques gorgées de boisson si l'épreuve dépasse 1 h.</li>
+  </ul></div>
+  <div class="card"><h2>Après</h2><ul>
+    <li><b>Dans l'heure</b> : ≈ ${r5(p.w*1.1)} g de glucides + ≈ ${r5(p.w*0.3)} g de protéines.</li>
+    <li><b>Réhydratation</b> : ≈ ${(Math.max(0,loss)*1.5).toFixed(1)} L sur les heures qui suivent (1,5× la perte), avec un peu de sel.</li>
+  </ul><p class="note">Estimations pour adultes en bonne santé. Rien de nouveau le jour de la course : teste tout à l'entraînement.</p></div>`;
+}
+
+/* ---------- recettes ---------- */
+const RECIPES=[
+ {n:'Porridge banane, miel et cannelle',t:10,code:'hi',k:520,c:92,p:18,f:9,ing:['70 g de flocons d\'avoine','250 ml de lait','1 banane','1 c. à s. de miel','cannelle'],st:['Cuire l\'avoine dans le lait 4-5 min.','Ajouter la banane écrasée, le miel, la cannelle.']},
+ {n:'Riz au poulet, sauce soja-gingembre',t:25,code:'hi',k:640,c:95,p:38,f:10,ing:['100 g de riz cru','120 g de blanc de poulet','1 c. à s. de sauce soja','gingembre, ail','1 poignée de petits pois'],st:['Cuire le riz.','Saisir le poulet émincé, ajouter ail, gingembre, soja, petits pois.','Servir sur le riz.']},
+ {n:'Pâtes tomate-thon',t:15,code:'hi',k:610,c:90,p:35,f:11,ing:['110 g de pâtes crues','1 boîte de thon au naturel','200 g de coulis de tomate','1 c. à c. d\'huile d\'olive','basilic'],st:['Cuire les pâtes.','Chauffer coulis + thon, assaisonner.','Mélanger, filet d\'huile.']},
+ {n:'Gâteau de riz express (avant séance)',t:10,code:'hi',k:330,c:62,p:9,f:5,ing:['150 g de riz au lait nature','1 c. à s. de confiture','quelques raisins secs'],st:['Mélanger, c\'est prêt. Idéal 1-2 h avant une séance intense.']},
+ {n:'Wrap œuf, avocat et crudités',t:10,code:'mid',k:480,c:42,p:22,f:24,ing:['1 grande galette de blé','2 œufs','1/2 avocat','salade, tomate, carotte râpée'],st:['Brouiller les œufs.','Garnir la galette, rouler.']},
+ {n:'Bowl quinoa, pois chiches, feta',t:20,code:'mid',k:560,c:62,p:24,f:22,ing:['70 g de quinoa cru','100 g de pois chiches','40 g de feta','concombre, tomate, herbes','citron, huile d\'olive'],st:['Cuire le quinoa.','Assembler avec le reste, assaisonner.']},
+ {n:'Skyr, fruits rouges et granola',t:3,code:'mid',k:330,c:42,p:24,f:6,ing:['200 g de skyr','100 g de fruits rouges','30 g de granola'],st:['Assembler dans un bol.']},
+ {n:'Saumon, brocoli et patate douce',t:30,code:'mid',k:590,c:48,p:36,f:26,ing:['130 g de saumon','200 g de patate douce','200 g de brocoli','huile d\'olive, citron'],st:['Rôtir la patate douce 25 min à 200 °C.','Cuire saumon et brocoli à la vapeur ou au four.']},
+ {n:'Omelette champignons-épinards',t:12,code:'lo',k:380,c:8,p:28,f:26,ing:['3 œufs','100 g de champignons','1 poignée d\'épinards','20 g de comté'],st:['Poêler champignons et épinards.','Ajouter les œufs battus, le fromage, plier.']},
+ {n:'Salade lentilles, œuf mollet, légumes',t:20,code:'lo',k:450,c:38,p:28,f:18,ing:['150 g de lentilles cuites','1 œuf','légumes croquants','moutarde, vinaigre, huile de colza'],st:['Cuire l\'œuf 6 min.','Mélanger lentilles, légumes et vinaigrette.']},
+ {n:'Poulet rôti, ratatouille',t:35,code:'lo',k:420,c:20,p:42,f:18,ing:['150 g de poulet','300 g de ratatouille','herbes de Provence'],st:['Rôtir le poulet.','Réchauffer la ratatouille, servir ensemble.']},
+ {n:'Tofu sauté aux légumes et cacahuètes',t:15,code:'lo',k:430,c:18,p:26,f:28,ing:['150 g de tofu ferme','300 g de légumes sautés','15 g de cacahuètes','sauce soja, citron vert'],st:['Dorer le tofu en cubes.','Ajouter les légumes, soja, cacahuètes.']},
+];
+function renderRecipes(){
+  const f=v('recFilter');
+  document.getElementById('recList').innerHTML=RECIPES.filter(r=>f==='all'||r.code===f).map(r=>`
+  <div class="card" style="margin:0"><div class="row" style="justify-content:space-between"><h3>${r.n}</h3><span class="pill ${CODE[r.code].c}">${CODE[r.code].t}</span></div>
+  <div class="sm mut">${r.t} min · ${r.k} kcal · G ${r.c} g · P ${r.p} g · L ${r.f} g (par portion, approx.)</div>
+  <details style="margin-top:8px"><summary class="sm" style="cursor:pointer">Ingrédients et étapes</summary>
+  <ul class="sm">${r.ing.map(i=>`<li>${i}</li>`).join('')}</ul><ol class="sm">${r.st.map(i=>`<li>${i}</li>`).join('')}</ol></details></div>`).join('');
+}
+
+/* ---------- init ---------- */
+function go(t){if(location.hash!=='#'+t)history.replaceState(null,'','#'+t);document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));document.querySelectorAll('section').forEach(s=>s.classList.toggle('on',s.id===t));window.scrollTo(0,0)}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.t));
+const opts=Object.entries(SPORTS).map(([k,s])=>`<option value="${k}">${s.n}</option>`).join('');
+document.getElementById('sSport').innerHTML=opts;document.getElementById('pSport').innerHTML=opts;
+setv('sDate',iso(new Date()));fillProfile();setv('sSport',P().sport);
+if(S.icu){setv('icuId',S.icu.id||'');setv('icuKey',S.icu.key||'')}
+renderToday();renderSessions();renderRecipes();raceUI();
+{const h=location.hash.slice(1);if(['today','week','race','recipes','profile'].includes(h))go(h)}
+{const q=new URLSearchParams(location.search).get('strava');
+ if(q){history.replaceState(null,'',location.pathname+location.hash);
+   const M={ok:'Strava connecté ✓',refuse:'Connexion Strava annulée',etat:'Connexion Strava expirée, réessaie',echec:'Strava a refusé la connexion'};toast(M[q]||'Strava');}
+ if(location.protocol.startsWith('http')&&(q==='ok'||S.stravaOn))syncStrava(false);}
+</script>
+</body>
+</html>

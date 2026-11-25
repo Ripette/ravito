@@ -1,0 +1,6 @@
+{
+  "name": "ravito",
+  "private": true,
+  "description": "Nutrition calée sur l'entraînement, avec connecteurs Strava et Intervals.icu",
+  "engines": { "node": ">=18" }
+}
