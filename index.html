@@ -237,6 +237,12 @@ footer{max-width:980px;margin:auto;padding:10px 16px 40px;color:var(--mut);font-
       <div><label>FC max (facultatif)</label><input type="number" id="pHR" placeholder="ex. 188"></div>
       <div><label>FTP vélo en watts (facultatif)</label><input type="number" id="pFTP" placeholder="ex. 250"></div>
     </div>
+    <h3 style="margin-top:16px">Objectifs fixés par ton diététicien·ne ou coach (facultatif)</h3>
+    <p class="sm mut" style="margin:0 0 8px">Laisse vide pour que Ravito calcule. Les calories sont une <b>moyenne sur 7 jours</b> : plus les jours durs, moins au repos. Les protéines sont fixes chaque jour.</p>
+    <div class="grid g4">
+      <div><label>Calories moyennes (kcal/jour)</label><input type="number" id="pKcal" placeholder="ex. 2700"></div>
+      <div><label>Protéines (g/jour)</label><input type="number" id="pProt" placeholder="ex. 180"></div>
+    </div>
     <h3 style="margin-top:16px">Horaires des repas</h3>
     <div class="grid g4">
       <div><label>Petit-déjeuner</label><input type="time" id="m0" value="07:30"></div>
@@ -314,6 +320,10 @@ function carbPerKg(L){return L===0?3:L<0.75?4:L<1.5?5.5:L<2.5?7:L<4?8.5:10}
 function dayLevel(L){return L<0.75?'lo':L<1.8?'mid':'hi'}
 function bmr(p){return 10*p.w+6.25*p.h-5*p.age+(p.sex==='m'?5:-161)}
 
+function modelEnergy(d){
+  const p=P(),L=dayLoad(d);let e=bmr(p)*p.act+daySess(d).reduce((a,s)=>a+kcal(s),0);
+  if(p.goal==='loss')e*=L<1.5?0.85:0.95;return e;
+}
 function dayPlan(d){
   const p=P(),ss=daySess(d),L=dayLoad(d),tomorrowL=dayLoad(addDays(d,1));
   let cpk=carbPerKg(L);
@@ -321,11 +331,22 @@ function dayPlan(d){
   if(tomorrowL>=2.5&&cpk<7)cpk+=1;
   if(p.goal==='loss'&&L<1.5)cpk=Math.max(2.5,cpk-0.5);
   const exK=ss.reduce((a,s)=>a+kcal(s),0);
-  let energy=bmr(p)*p.act+exK;
-  if(p.goal==='loss')energy*=L<1.5?0.85:0.95;
-  const carbs=cpk*p.w, intra=ss.reduce((a,s)=>a+during(s).total,0), mealCarbs=Math.max(carbs*0.6,carbs-intra), prot=(p.goal==='loss'?2.0:1.8)*p.w;
-  let fat=(energy-carbs*4-prot*4)/9; fat=Math.max(fat,0.8*p.w);
+  let energy=modelEnergy(d),carbs,fat;
+  const prot=p.prot||(p.goal==='loss'?2.0:1.8)*p.w;
+  if(p.kcal){
+    // objectif moyen imposé : on garde les variations du modèle, recalées sur la moyenne des 7 jours autour
+    let sum=0;for(let i=-3;i<=3;i++)sum+=modelEnergy(addDays(d,i));
+    energy=p.kcal*Math.pow(energy/(sum/7),0.8);
+    // lipides : part un peu plus faible les jours durs, minimum 0,8 g/kg ; le reste en glucides
+    fat=Math.max(0.8*p.w,energy*(L>=1.8?0.22:L>=0.75?0.25:0.28)/9);
+    carbs=Math.max(2*p.w,(energy-prot*4-fat*9)/4);
+    cpk=carbs/p.w;
+  }else{
+    carbs=cpk*p.w;
+    fat=Math.max((energy-carbs*4-prot*4)/9,0.8*p.w);
+  }
   energy=carbs*4+prot*4+fat*9;
+  const intra=ss.reduce((a,s)=>a+during(s).total,0), mealCarbs=Math.max(carbs*0.6,carbs-intra);
   // repas
   const mt=(p.meals||['07:30','12:30','16:30','19:45']).map(mins);
   const tomorrow=daySess(addDays(d,1));
@@ -567,9 +588,9 @@ function v(id){return document.getElementById(id).value}
 function setv(id,x){document.getElementById(id).value=x}
 
 /* ---------- profil ---------- */
-function fillProfile(){const p=P();setv('pHR',p.hrmax||'');setv('pFTP',p.ftp||'');setv('pName',p.name||'');setv('pSex',p.sex);setv('pAge',p.age);setv('pW',p.w);setv('pH',p.h);setv('pAct',p.act);setv('pGoal',p.goal);setv('pSport',p.sport);(p.meals||[]).forEach((m,i)=>setv('m'+i,m))}
+function fillProfile(){const p=P();setv('pKcal',p.kcal||'');setv('pProt',p.prot||'');setv('pHR',p.hrmax||'');setv('pFTP',p.ftp||'');setv('pName',p.name||'');setv('pSex',p.sex);setv('pAge',p.age);setv('pW',p.w);setv('pH',p.h);setv('pAct',p.act);setv('pGoal',p.goal);setv('pSport',p.sport);(p.meals||[]).forEach((m,i)=>setv('m'+i,m))}
 function saveProfile(){
-  S.profile={hrmax:+v('pHR')||null,ftp:+v('pFTP')||null,name:v('pName'),sex:v('pSex'),age:+v('pAge'),w:+v('pW'),h:+v('pH'),act:+v('pAct'),goal:v('pGoal'),sport:v('pSport'),meals:[0,1,2,3].map(i=>v('m'+i))};
+  S.profile={kcal:+v('pKcal')||null,prot:+v('pProt')||null,hrmax:+v('pHR')||null,ftp:+v('pFTP')||null,name:v('pName'),sex:v('pSex'),age:+v('pAge'),w:+v('pW'),h:+v('pH'),act:+v('pAct'),goal:v('pGoal'),sport:v('pSport'),meals:[0,1,2,3].map(i=>v('m'+i))};
   save();setv('sSport',S.profile.sport);document.getElementById('pMsg').textContent='Enregistré ✓';setTimeout(()=>document.getElementById('pMsg').textContent='',2000);renderToday();
 }
 function exportData(){const a=document.createElement('a');const d={...S,icu:{id:S.icu?.id||''}};a.href=URL.createObjectURL(new Blob([JSON.stringify(d,null,2)],{type:'application/json'}));a.download='ravito-sauvegarde.json';a.click()}
