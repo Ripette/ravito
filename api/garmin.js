@@ -18,7 +18,7 @@ module.exports = async (req, res) => {
   try {
     const tr = await fetch(BASE + '/personalapitoken-service/personal-api/personal-api-key/token', {
       method: 'POST',
-      headers: { Authorization: 'ApiKey ' + key.trim(), Accept: 'application/json' },
+      headers: { Authorization: 'ApiKey ' + key.trim(), Accept: '*/*' },
       signal: AbortSignal.timeout(15000),
     });
     if (tr.status === 401 || tr.status === 403) return res.status(401).json({ error: 'Clé Garmin refusée (expirée ou supprimée ?)' });
@@ -30,7 +30,7 @@ module.exports = async (req, res) => {
 
     const q = new URLSearchParams({ startDate: from, endDate: to, start: '0', limit: '100' });
     const ar = await fetch(`${BASE}/activitylist-service/activities/search/activities?${q}`, {
-      headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
+      headers: { Authorization: 'Bearer ' + token, Accept: '*/*' },
       signal: AbortSignal.timeout(15000),
     });
     if (!ar.ok) return res.status(502).json({ error: 'Garmin (activités) a répondu ' + ar.status });
